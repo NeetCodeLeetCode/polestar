@@ -2571,3 +2571,78 @@ Polestar.RegisterGuide({
 	assert!(!after.contains("1:2:"), "the candles go once their quest is skipped: {after}");
 	assert!(after.contains("1:1:work"), "{after}");
 }
+
+// A capital counts as one town (#4283): in Stormwind City, a hand-in or a pick-up 300 or 700 yd off shows whatever the
+// walk, where an inn's rest area stops at 250 yd (HERE_FAR). The arrow leads north to the gate, away from both.
+// The capital is a map of its own at the same bounds as Elwynn here (30 yd per map percent on x).
+const CAPITAL_GUIDE: &str = r#"
+Polestar.RegisterGuide({ id = "test/capital", pack = "test", title = "Capital", minLevel = 1, maxLevel = 10, steps = {
+	{ title = "Gate", goals = { { t = "goto", map = MAP, x = 50, y = 20 } } },
+	{ title = "Elsewhere", goals = { { t = "goto", map = MAP, x = 50, y = 5 } } },
+	{ title = "Far", goals = { { t = "goto", map = MAP, x = 50, y = 2 } } },
+	{ title = "Hand in", goals = { { t = "turnin", quest = 40, title = "A Fishy Peril", npc = 240, npcName = "Far NPC", map = MAP, x = TURNIN_X, y = 50 } } },
+	{ title = "Pick up", goals = { { t = "accept", quest = 106, title = "Young Lovers", npc = 251, npcName = "Far Giver", qlvl = 6, map = MAP, x = ACCEPT_X, y = 50 } } },
+	{ goals = { { t = "level", level = 60 } } },
+} })"#;
+
+const CAPITAL_WORLD: &str = r#"stub.world.addMap(1453, { name = "Stormwind City", c = 0, left = 1500, right = -1500, top = 500, bottom = -1500 })"#;
+
+// The lines shown, sorted, with the player at 50,50 of map `map`, after the arrival poll.
+fn capital_lines(map: u32, turnin_x: f64, accept_x: f64, resting: bool) -> Vec<String> {
+	let guide = CAPITAL_GUIDE.replace("MAP", &map.to_string()).replace("TURNIN_X", &turnin_x.to_string()).replace("ACCEPT_X", &accept_x.to_string());
+	let guide = format!("{CAPITAL_WORLD}\nstub.world.resting = {resting}; stub.world.moveTo({map}, 50, 50)\n{guide}");
+	let mut out = run_guide_with(
+		&guide,
+		"test/capital",
+		"",
+		r#"
+		stub.fire("QUEST_LOG_UPDATE"); stub.advance(0.6)
+		local seen = {}
+		for _, v in ipairs(E.GetWhileHereList()) do seen[#seen + 1] = (v.hereText:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+		table.sort(seen)
+		emit(table.concat(seen, "|"))"#,
+	);
+	let joined = out.remove(0);
+	joined.as_str().unwrap().split('|').filter(|l| !l.is_empty()).map(String::from).collect()
+}
+
+#[test]
+fn in_a_capital_a_hand_in_and_a_pick_up_across_the_city_show() {
+	let far = capital_lines(1453, 73.3, 60.0, true);
+	assert_eq!(far.len(), 2, "both lines show across the city: {far:?}");
+	assert!(far[0].contains("Far NPC") && far[1].contains("Far Giver"), "{far:?}");
+	// Standing there needs no rest flag: the city is the place, as it is for the walking router.
+	assert_eq!(capital_lines(1453, 73.3, 60.0, false).len(), 2);
+}
+
+#[test]
+fn outside_a_capital_an_inns_rest_area_still_stops_at_250_yards() {
+	// The same distances on a map that is no capital (Elwynn's inn): 300 and 700 yd stay away, as before.
+	assert!(capital_lines(1429, 73.3, 60.0, true).is_empty());
+}
+
+#[test]
+fn a_capital_is_the_town_only_for_its_own_people() {
+	// The player in Stormwind, the NPCs on Elwynn's map (another town): 300 yd is past an inn's reach.
+	let guide = CAPITAL_GUIDE.replace("MAP", "1429").replace("TURNIN_X", "60").replace("ACCEPT_X", "73.3");
+	let guide = format!("{CAPITAL_WORLD}\nstub.world.resting = true; stub.world.moveTo(1453, 50, 50)\n{guide}");
+	let out = run_guide_with(&guide, "test/capital", "", r#"stub.fire("QUEST_LOG_UPDATE"); stub.advance(0.6); emit(#E.GetWhileHereList())"#);
+	assert_eq!(out, vec![json!(0)]);
+}
+
+#[test]
+fn a_line_across_the_capital_goes_when_the_player_leaves_the_capital() {
+	let guide = CAPITAL_GUIDE.replace("MAP", "1453").replace("TURNIN_X", "73.3").replace("ACCEPT_X", "60");
+	let guide = format!("{CAPITAL_WORLD}\nstub.world.resting = true; stub.world.moveTo(1453, 50, 50)\n{guide}");
+	let out = run_guide_with(
+		&guide,
+		"test/capital",
+		"",
+		r#"
+		stub.fire("QUEST_LOG_UPDATE"); stub.advance(0.6)
+		emit(#E.GetWhileHereList())
+		w.moveTo(1429, 50, 50); stub.advance(0.6)   -- the same yards, on a map that is no capital: past 250 yd x 100/60
+		emit(#E.GetWhileHereList())"#,
+	);
+	assert_eq!(out, vec![json!(2), json!(0)]);
+}

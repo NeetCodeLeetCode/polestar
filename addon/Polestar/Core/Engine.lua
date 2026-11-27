@@ -13745,8 +13745,10 @@ end
 -- leads (Own.hereDetour), at most behavior.whileHereTurninSeconds (twice
 -- that, HERE_XP, when waiting for the guide's hand-in costs XP:
 -- Own.hereXpLoss), or any detour for an NPC within HERE_TOWN yards while the
--- player rests in a town; never past HERE_FAR yards, never on another floor
--- or a long way round (Own.hereMayShow). One the route walks to about now,
+-- player rests in a town, or for any NPC of the capital the player stands in
+-- (Own.hereCapital: a capital is one town, #4283); never past HERE_FAR yards
+-- (a capital's NPCs apart), never on another floor or a long way round
+-- (Own.hereMayShow). One the route walks to about now,
 -- staying near its NPC on the way (Own.hereSoon: HERE_SOON_NEAR yards,
 -- HERE_SOON_SECONDS of walking), is left to it, unless the player stands at its NPC: within HERE_AT
 -- yards a hand-in shows whatever its step (0.3.5's reach, which 0.3.6
@@ -13798,8 +13800,10 @@ Own.HERE_MOBS_ABOVE = 1 -- levels a line's mobs may be above the player
 -- A hand-in (Own.hereDetour): in reach while its detour is at most the
 -- player's seconds (behavior.whileHereTurninSeconds), or its NPC is within
 -- HERE_TOWN yards while the player rests in a town (an inn's or a city's
--- rest area: the same town); never past HERE_FAR yards, however little the
--- detour (an NPC straight ahead on the way is "here" no longer). Within
+-- rest area: the same town), or the NPC is in the capital the player stands in
+-- (the whole city counts, whatever the yards); never past HERE_FAR yards
+-- anywhere else, however little the detour (an NPC straight ahead on the way is
+-- "here" no longer). Within
 -- HERE_AT yards it shows (and stays) whatever its detour or step, while the
 -- setting allows any hand-in out of town or the player rests in one.
 Own.HERE_TOWN = 100
@@ -14975,7 +14979,7 @@ function Own.hereStranded(list, n, live)
 				n = n + 1
 				list[n] = { s = Own.STRAND_STEP, g = q, goal = goal, kind = "turnin", left = 0, places = 1,
 					npcs = false, seen = false, spot = false, d = false, pick = 0,
-					budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, near = false, key = "t" .. q,
+					budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false, key = "t" .. q,
 					sub = later and L["Handed in later on the route"] or L["Not handed in on the route ahead"],
 					on = false, since = 0, yards = 0, serial = 0, view = false }
 			end
@@ -15049,7 +15053,7 @@ function Own.hereOffRoute(list, n, live)
 							n = n + 1
 							list[n] = { s = Own.OFF_STEP, g = g, goal = goal, kind = "work", left = o.numRequired - o.numFulfilled, places = #goal.spots,
 								npcs = Own.hereNpcsOf(goal), wait = false, seen = false, spot = false, d = false, pick = 0,
-								budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, near = false,
+								budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false,
 								key = q .. ":o" .. line,
 								sub = later and L["Handed in later on the route"] or L["Not handed in on the route ahead"],
 								tip = L["A quest in your log with an objective nearby that the route doesn't do here."],
@@ -15105,7 +15109,7 @@ function Own.hereNext(list, n)
 					n = n + 1
 					list[n] = { s = Own.NEXT_STEP, g = q, goal = goal, kind = "take", left = 0, places = 1,
 						npcs = false, seen = false, spot = false, d = false, pick = 0,
-						budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, near = false, key = "a" .. q,
+						budget = Own.hereSeconds, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false, key = "a" .. q,
 						sub = L["For %s, later on your route."]:format(g.title or g.id), later = g,
 						tip = L["A guide later on your route takes this quest here: taken now, its step is done when you get there."],
 						on = false, since = 0, yards = 0, serial = 0, view = false }
@@ -15193,7 +15197,7 @@ function Own.hereDirect(list, n, live, nearTo)
 				list[n] = { s = s, g = g, goal = goal, kind = "turnin", left = 0, places = 1,
 					npcs = false, seen = false, spot = false, d = false, pick = 0,
 					budget = Own.hereSeconds, xp = false, soon = ahead and Own.hereSoonOf(s, goal, live) or false, visit = false,
-					detour = 0, town = false, near = not ahead or s <= nearTo, key = "t" .. q,
+					detour = 0, town = false, city = false, near = not ahead or s <= nearTo, key = "t" .. q,
 					on = false, since = 0, yards = 0, serial = 0, view = false }
 			end
 		end
@@ -15405,7 +15409,7 @@ function Own.hereCollect(list, live, pc)
 						if visit and budget > 0 then budget = budget + visit.credit end
 						list[n] = { s = s, g = g, goal = goal, kind = kind, left = left, places = spots and #spots or 1,
 							npcs = kind == "work" and Own.hereNpcsOf(goal), wait = wait, seen = false, spot = false, d = false, pick = 0,
-							budget = budget, xp = xp or false, soon = soon or false, visit = visit, detour = 0, town = false, near = back or s <= nearTo,
+							budget = budget, xp = xp or false, soon = soon or false, visit = visit, detour = 0, town = false, city = false, near = back or s <= nearTo,
 							-- opened: a pick-up a profession learned since opened behind the player (Own.noteOpened).
 							opened = fresh,
 							-- A shown line's: on, since (its time), yards (shown), serial (`appeared`), view.
@@ -15582,7 +15586,8 @@ function Own.hereDistance(e, c, px, py)
 	if gc ~= c then return nil end
 	local d = ((gx - px) ^ 2 + (gy - py) ^ 2) ^ 0.5
 	e.detour = Own.hereDetour(c, px, py, gx, gy, d)
-	e.town = d <= Own.HERE_TOWN and Own.hereResting()
+	e.city = not Own.HERE_STOPS[e.kind] and goal.map ~= nil and goal.map == Own.hereCapital()
+	e.town = e.city or (d <= Own.HERE_TOWN and Own.hereResting())
 	return d
 end
 
@@ -15620,16 +15625,36 @@ function Own.hereResting()
 	return IsResting ~= nil and Compat().Readable(IsResting()) == true
 end
 
+-- The capital's map the player stands in, or nil. Read once per poll: every
+-- hand-in and pick-up asks.
+function Own.hereCapital()
+	local now = GetTime()
+	if now ~= Own.hereCapitalAt then
+		Own.hereCapitalAt, Own.hereCapitalMap = now, Compat().GetPlayerCapital()
+	end
+	return Own.hereCapitalMap
+end
+
+-- The merchant lines (Own.hereVendorOf): they pick their nearest place within
+-- HERE_FAR yards themselves, and a capital's reach is not theirs.
+Own.HERE_STOPS = { repair = true, sell = true, rune = true }
+
+-- How far off a hand-in or a pick-up may be: HERE_FAR yards, but a capital is
+-- one town (#4283), so any NPC in the capital the player stands in.
+function Own.hereLimit(e)
+	return e.city and math.huge or Own.HERE_FAR
+end
+
 -- Whether candidate e, d yards off (Own.hereDistance's), is in reach: an
 -- objective or a flight master (HERE_RADIAL) within
 -- behavior.whileHereRadius yards; a hand-in or a pick-up in the player's
 -- town or at most its seconds out of the way (0: in town only), never past
--- HERE_FAR.
+-- HERE_FAR (Own.hereLimit: none in a capital).
 Own.HERE_RADIAL = { work = true, flight = true, gather = true }
 function Own.hereIn(e, d)
 	if not Own.HERE_RADIAL[e.kind] then
 		if Own.hereAt(e, d) then return true end
-		return not e.soon and d <= Own.HERE_FAR and (e.town or (e.budget > 0 and e.detour <= e.budget))
+		return not e.soon and d <= Own.hereLimit(e) and (e.town or (e.budget > 0 and e.detour <= e.budget))
 	end
 	return d <= (Own.hereRadius or 180)
 end
@@ -15646,12 +15671,14 @@ end
 -- (Own.hereAt), one the route reaches anyway (e.soon) past HERE_CLEAR times
 -- HERE_AT, else past HERE_CLEAR times HERE_FAR, or out of town with its
 -- detour past HERE_CLEAR times its seconds and HERE_SLACK more; never
--- further than HERE_CLEAR_MAX.
+-- further than HERE_CLEAR_MAX. One in the capital the player stands in goes
+-- with the player's leaving it, not by its yards.
 function Own.herePast(e, d)
 	local clear, top = Own.HERE_CLEAR, Own.HERE_CLEAR_MAX
 	if not Own.HERE_RADIAL[e.kind] then
 		if Own.hereAt(e, d) then return false end
 		if e.soon then return d > Own.HERE_AT * clear end
+		if e.city then return false end
 		return d > math.min(Own.HERE_FAR * clear, top) or (not e.town and e.detour > e.budget * clear + Own.HERE_SLACK)
 	end
 	return d > math.min((Own.hereRadius or 180) * clear, top)
@@ -16281,7 +16308,7 @@ function Engine.WhileHereState()
 			local w = Own.hereWalked[best.goal]
 			st.why = ("turned away (%s; checked again in %d s or %d yd)"):format(w.why == "floor" and "another floor"
 				or w.why == "walk" and "a long way round" or "the walk is too far out of the way", Own.HERE_RECHECK, Own.HERE_REPICK)
-		elseif best and best.kind ~= "work" and bestD > Own.HERE_FAR then
+		elseif best and best.kind ~= "work" and bestD > Own.hereLimit(best) then
 			st.why = ("too far for a hand-in or pick-up (over %d yd)"):format(Own.HERE_FAR)
 		elseif best and best.kind ~= "work" and best.soon and not Own.hereIn(best, bestD) then
 			st.why = ("left to the route (it goes there next; shows within %d yd)"):format(Own.HERE_AT)
@@ -16386,7 +16413,7 @@ function Own.hereFlyOf(node)
 		-- map frames are loaded.
 		if node.c and node.wx and node.wy then worldOf[goal] = { node.c, node.wx, node.wy } end
 		e = { s = Own.FLY_STEP, g = node.id, goal = goal, kind = "flight", left = 0, places = 1, npcs = false, seen = false, spot = false,
-			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, near = false,
+			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false,
 			on = false, since = 0, yards = 0, serial = 0, view = false }
 		Own.hereFlyEntries[node] = e
 	end
@@ -16555,7 +16582,7 @@ function Own.hereGatherOf(k)
 	if not e then
 		local goal = { t = "gather", gatherKind = k, text = Own.hereGatherText(k, false) }
 		e = { s = Own.GATHER_STEP, g = k, goal = goal, kind = "gather", left = 0, places = 1, npcs = false, seen = false, spot = false,
-			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, near = false,
+			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false,
 			on = false, since = 0, yards = 0, serial = 0, view = false }
 		Own.hereGatherEntries[k] = e
 	end
@@ -16726,7 +16753,7 @@ function Own.hereVendorOf(kind)
 		local goal = { t = kind == "rune" and "sell" or kind, text = "" } -- (a rune stop has the merchant's icon)
 		-- g: the kind's place in VENDOR_KINDS (a goal index is a number wherever a waypoint goes, Nav/Walk.lua's too).
 		e = { s = Own.VENDOR_STEP, g = kind == "repair" and 1 or kind == "sell" and 2 or 3, goal = goal, kind = kind, left = 0, places = 1, npcs = false, seen = false, spot = false,
-			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, near = false,
+			d = false, pick = 0, budget = 0, xp = false, soon = false, visit = false, detour = 0, town = false, city = false, near = false,
 			on = false, since = 0, yards = 0, serial = 0, view = false,
 			list = false, p = false, pc = false, px = 0, py = 0, free = 0, want = 0, worn = 100, both = false }
 		Own.hereVendorEntries[kind] = e

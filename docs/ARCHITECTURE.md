@@ -2297,7 +2297,11 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   "Hand-ins: how far out of your way", apart from "How close"; 0: in town
   only), or any detour for an NPC within `HERE_TOWN` (100) yards while the
   player rests in a town (`IsResting`: an inn's or a city's rest area, the
-  same town); never past `HERE_FAR` (250) yards, however little the detour.
+  same town), or for any NPC of the capital the player stands in
+  (`Own.hereCapital`, `Compat.GetPlayerCapital`: the whole city is one
+  town, whatever the yards); never past `HERE_FAR` (250) yards anywhere
+  else, however little the detour. A merchant line (sell, repair, rune stop)
+  keeps `HERE_FAR` in a capital too.
   It shows once the walk confirms it (`Own.hereTurninOk`, in
   `Own.hereMayShow`): not on another floor (the goal's `z` against Nav's
   walking floor, more than `HERE_FLOOR` (8) yards apart: Undercity's
