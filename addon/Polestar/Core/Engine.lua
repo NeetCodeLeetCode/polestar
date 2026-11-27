@@ -16411,10 +16411,9 @@ function Own.hereAimAt(cur)
 	return true
 end
 
--- Seconds of extra walking that objective line e (a "work" line) adds to the way the arrow
--- leads now, from world position c, px, py; nil when it cannot be measured (another
--- continent, no distance yet). The same price a hand-in pays (Own.hereDetour).
-function Own.hereWorkDetour(e, c, px, py)
+-- The world place objective line e (a "work" line) leads to: x, y on continent c; nil when
+-- it is on another continent or Own.hereTick has not measured its distance (e.d) yet.
+function Own.hereWorkPlace(e, c)
 	local w = e.spot and Spots.world[e.spot]
 	local gc, gx, gy
 	if w then
@@ -16423,29 +16422,122 @@ function Own.hereWorkDetour(e, c, px, py)
 		gc, gx, gy = goalWorld(e.goal)
 	end
 	if gc ~= c or not e.d then return nil end
-	return Own.hereDetour(c, px, py, gx, gy, e.d)
+	return gx, gy
+end
+
+-- What the arrow that takes objectives (Own.hereAutoAim) weighs a line by, how it chooses:
+-- a path of lines scores its value for each minute of extra walking (plus AIM_FLOOR seconds,
+-- so a line right on the way does not score without end), and the arrow takes the first line
+-- of the best path once the score is at least AIM_TRIGGER. A line it holds goes back to the guide below
+-- AIM_RELEASE (the player walked away), and another line takes its place only when its path
+-- scores AIM_MARGIN times as much. Values are percent of a level.
+Own.AIM_TRIGGER, Own.AIM_RELEASE, Own.AIM_MARGIN = 3, 1.5, 1.3
+Own.AIM_FLOOR = 10 -- seconds
+Own.AIM_FREE = 3 -- seconds of extra walking at most for a line to count as on the way: taken and held whatever it is worth
+Own.AIM_NEUTRAL = 5 -- the value of a line whose quest's XP is not known
+Own.AIM_CHAIN = 1.25 -- a line that finishes a quest with a follow-up (QuestDB.FollowUps) counts this much more
+Own.AIM_TIGHT, Own.AIM_FINISH = 3, 1.5 -- with this many quest slots or fewer left (Own.logRoom), a line that finishes its quest counts this much more
+Own.AIM_KEEP = 5 -- seconds a line's value is kept
+Own.autoE = {} -- the lines of the path being scored, by the index Plan.x, y and value use
+
+-- The unfinished objective lines of quest q in the log (at least 1: the line asked about).
+function Own.hereLinesLeft(q)
+	local n = 0
+	for _, o in ipairs(Compat().GetQuestObjectives(q) or NONE) do
+		if not o.finished then n = n + 1 end
+	end
+	return n > 0 and n or 1
+end
+
+-- The value of objective line e: its quest's XP as percent of a level, split over the
+-- quest's unfinished lines (Own.AIM_NEUTRAL without the XP or the level's size). The last
+-- line of a quest finishes it: a quest with a follow-up counts more (a chain moves on), and
+-- so does any quest while the log is nearly full (its hand-in frees a slot). Kept
+-- AIM_KEEP seconds on the line.
+function Own.hereValue(e, now)
+	if e.aimAt and now - e.aimAt < Own.AIM_KEEP then return e.aimValue end
+	local q = e.goal.quest
+	local value, max = Own.AIM_NEUTRAL, player.xpMax or 0
+	local xp = q and Own.questXp(q)
+	if xp and max > 0 then value = xp / max * 100 end
+	local left = q and Own.hereLinesLeft(q) or 1
+	value = value / left
+	if q and left == 1 then
+		local Q = ns.QuestDB
+		if Q and Q.IsLoaded() and Q.FollowUps(q) then value = value * Own.AIM_CHAIN end
+		if Own.logRoom() <= Own.AIM_TIGHT then value = value * Own.AIM_FINISH end
+	end
+	e.aimAt, e.aimValue = now, value
+	return value
 end
 
 -- behavior.whileHereAim: the arrow takes a "While you're here" objective line by itself,
--- as if the player had clicked it, when the line costs at most
--- behavior.whileHereAimSeconds of extra walking on the way the guide leads (the nearest
--- such line first). Only while no goal is aimed (the player's click, a row, an earlier
--- pick stays), outside combat (Own.hereTick) and with no timed quest running. It adds no
--- accept, so the quest log and the escort and level rules of the lines hold as before.
--- The line leaves as any other does: its work is done, the player walks off, or the
--- player dismisses it, and the arrow goes back to the guide. True when it took one.
+-- as if the player had clicked it. Of the objective lines shown (Own.hereOn) the
+-- ones measured are scored together (ns.StopPlanner): every order of every few of them, by
+-- value for each minute of extra walking on the way the guide leads (Own.hereValue), at most
+-- behavior.whileHereAimSeconds of it in all. The arrow takes the first line of the best
+-- path when that scores AIM_TRIGGER or more (or lies on the way: AIM_FREE seconds), and only while no goal is aimed (the player's
+-- click, a row, an earlier pick stays), outside combat (Own.hereTick) and with no timed
+-- quest running. It adds no accept, so the quest log and the escort and level rules of the
+-- lines hold as before.
+-- A line it holds is scored again each poll, from the heading the guide had when the line
+-- was taken (the arrow itself leads to the line now). It goes back to the guide when
+-- the path scores under AIM_RELEASE or the guide's step changed, and it gives way to
+-- another line only for one that scores AIM_MARGIN times as much, so the arrow
+-- does not flip between two lines. A line also leaves as any other does: its work is
+-- done, the player walks off, or the player dismisses it. True when the arrow took a line or
+-- went back to the guide.
 function Own.hereAutoAim(c, px, py)
-	if aim or not ns.Get("behavior.whileHereAim") then return false end
-	local limit = tonumber(ns.Get("behavior.whileHereAimSeconds")) or 15
-	local best, bestSecs
+	local Plan = ns.StopPlanner
+	if not (Plan and ns.Get("behavior.whileHereAim")) then
+		Own.autoGoal = nil
+		return false
+	end
+	local mine = Own.autoGoal
+	if mine and aim ~= mine then mine, Own.autoGoal = nil, nil end -- the player, a row or the guide took the arrow
+	if aim and not mine then return false end
+	if mine and Own.autoStep ~= current then
+		Own.autoGoal, aim = nil, nil
+		return true
+	end
+	local tx, ty
+	if mine then
+		if Own.autoC == c then tx, ty = Own.autoX, Own.autoY end
+	else
+		local tc, hx, hy = Own.hereHeading()
+		if tc == c then tx, ty = hx, hy end
+	end
+	local now, n, held = GetTime(), 0, nil
 	for i = 1, Own.hereOnN do
 		local e = Own.hereOn[i]
-		if e.kind == "work" then
-			local secs = Own.hereWorkDetour(e, c, px, py)
-			if secs and secs <= limit and (not bestSecs or secs < bestSecs) then best, bestSecs = e, secs end
+		if e.kind == "work" and n < Plan.MAX then
+			local gx, gy = Own.hereWorkPlace(e, c)
+			if gx then
+				n = n + 1
+				Own.autoE[n], Plan.x[n], Plan.y[n], Plan.value[n] = e, gx, gy, Own.hereValue(e, now)
+				if mine and e.goal == mine then held = n end
+			end
 		end
 	end
-	return best ~= nil and Own.hereAimAt(best)
+	local limit = tonumber(ns.Get("behavior.whileHereAimSeconds")) or 15
+	local first, score, secs = Plan.Best(n, px, py, tx, ty, Own.HERE_WINDING / Own.HERE_SPEED, Own.AIM_FLOOR, limit)
+	if mine then
+		local keep = held and Plan.score[held]
+		if not keep or (keep < Own.AIM_RELEASE and Plan.secs[held] > Own.AIM_FREE) then
+			Own.autoGoal, aim = nil, nil
+			return true
+		end
+		return first ~= held and score >= keep * Own.AIM_MARGIN and Own.hereAutoTake(Own.autoE[first], c, tx, ty)
+	end
+	return first ~= nil and (score >= Own.AIM_TRIGGER or secs <= Own.AIM_FREE) and Own.hereAutoTake(Own.autoE[first], c, tx, ty)
+end
+
+-- Line e becomes the arrow's aim by Own.hereAutoAim, with the heading (tx, ty on continent c)
+-- the guide led to, which its scores are measured against until the arrow goes back.
+function Own.hereAutoTake(e, c, tx, ty)
+	if not Own.hereAimAt(e) then return false end
+	Own.autoGoal, Own.autoStep, Own.autoC, Own.autoX, Own.autoY = e.goal, current, c, tx, ty
+	return true
 end
 
 -- The player's "not now" for line i (default 1): it goes, muted near here
