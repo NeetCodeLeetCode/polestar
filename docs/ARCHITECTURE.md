@@ -2190,7 +2190,10 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   (`Own.alongWork`: goals past their label kept by `Own.alongHeld`, #853),
   `findWaypoint` leads to the nearest of those with a place
   (`Own.alongAim`) instead, until the quest is ready; that turn-in's goal
-  view has `pinOpen = "along"`. The guide window lists them under "Then:"
+  view has `pinOpen = "along"`. Else, while the quest is in the log with a
+  line open, it leads to the nearest open line's goal with a place
+  (`Own.objectiveAim`, #3381: `Own.pinGoals`, the guide's own goal for the
+  line in any step, or one built from the quest database). The guide window lists them under "Then:"
   ("Along the way", `fillAlong`, at most six rows, not in compact mode);
   "Then:" and Up next skip along steps (`GetStepView(i).along`).
 - **Pinned quests** (#644). The player pins a quest of the log as along the

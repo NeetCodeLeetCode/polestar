@@ -172,6 +172,8 @@ mod engine_next_when;
 mod engine_notyet;
 #[path = "engine-npc-arrival.rs"]
 mod engine_npc_arrival;
+#[path = "engine-objectives-first.rs"]
+mod engine_objectives_first;
 #[path = "engine-packs.rs"]
 mod engine_packs;
 #[path = "engine-pin.rs"]
