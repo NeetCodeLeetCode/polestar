@@ -9,3 +9,8 @@ section: players
   several objectives are near. It goes back to the guide when the objective
   is done, you walk away or you dismiss it. "Objectives: how far out of your
   way" sets the most extra seconds of walking.
+- The arrow also looks at the guide's next stops, so it waits for an
+  objective that costs less after the next stop, and it hands an objective
+  back when you walk away from it. The guide menu has a new entry,
+  "Recalibrate the arrow" (also `/polestar recalibrate`), that makes the
+  arrow choose its target again from where you stand.
