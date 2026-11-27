@@ -1235,6 +1235,18 @@ function Compat.GetUnitZone(unit)
 	return map
 end
 
+-- The six capitals' maps (Stormwind City, Orgrimmar, Ironforge, Thunder Bluff,
+-- Darnassus, the Undercity). Nav/Walk.lua keeps the same six as zone ids for
+-- its floor rules: Polestar_Nav loads on demand and cannot be read from here.
+local CAPITAL_MAPS = { [1453] = true, [1454] = true, [1455] = true, [1456] = true, [1457] = true, [1458] = true }
+
+-- The capital's map the player stands in (its best map is one of the six), or
+-- nil: elsewhere, in an instance, or where the client does not say.
+function Compat.GetPlayerCapital()
+	local map = C_Map and C_Map.GetBestMapForUnit and readable(C_Map.GetBestMapForUnit("player"))
+	return CAPITAL_MAPS[map] and map or nil
+end
+
 -- Where the player stands, as guide lines ready to paste into a step: the
 -- map (`zone map <uiMapID>`) and a goal there (`goto x,y live`, two decimals
 -- like the compiler writes), then `x,y live` for the hint; nil where the
