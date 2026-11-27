@@ -2565,10 +2565,20 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   (`Own.hereTimed`: `Compat.QuestTimers`, or Quests/Timed.lua's clock for a
   delivery the client does not report) ranks before every other
   (`Own.hereBefore`).
-  The line never takes
-  the arrow: `Engine.AimWhileHere` sets `aim` to its goal (`findWaypoint`
+  The line takes
+  the arrow only when the player clicks it, or `behavior.whileHereAim` (off by default) lets
+  the arrow take it: `Engine.AimWhileHere` sets `aim` to its goal (`findWaypoint`
   leads there while it shows, a step change keeps it), and when the line
-  goes `aim` is cleared and the arrow returns to the guide. Messages:
+  goes `aim` is cleared and the arrow returns to the guide. `Own.hereAimAt` is that
+  step, shared by the click and the automatic take. With `behavior.whileHereAim`, each poll
+  (`Own.hereTick`, outside combat and with no timed quest running) offers the shown
+  "work" lines to `Own.hereAutoAim`, but only while no goal is aimed: the line whose detour
+  (`Own.hereWorkDetour`, the price of a hand-in, `Own.hereDetour`: the seconds of extra
+  walking to reach its place and go on to where the waypoint leads) is the smallest, at most
+  `behavior.whileHereAimSeconds` (5 to 60, 15 by default, Options' "Objectives: how far out
+  of your way"), takes the arrow. A pick-up, a hand-in, a flight master and the sell, repair
+  and gathering lines never do. The guide, its steps and its saved progress do not change; a
+  click, a row the player chose or a dismissed line (`Own.hereDismiss`) wins over it. Messages:
   `WHILE_HERE_CHANGED` (a line came, its count changed, it went) and
   `WHILE_HERE_MOVED(yards, i)`. The window draws them between the step's goals and
   "Then:" (`GF.FillHere`, in every mode and style), the toast says it with the window hidden

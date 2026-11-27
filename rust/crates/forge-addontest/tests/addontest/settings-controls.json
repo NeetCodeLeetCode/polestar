@@ -2399,6 +2399,22 @@
    "at": [
     "Guide > Automation > Quests"
    ]
+  },
+  {
+   "id": "behavior.whileHereAim",
+   "kind": "toggle",
+   "label": "Take nearby objectives",
+   "at": [
+    "Guide > Window > Dynamic Questing"
+   ]
+  },
+  {
+   "id": "behavior.whileHereAimSeconds",
+   "kind": "slider",
+   "label": "Objectives: how far out of your way",
+   "at": [
+    "Guide > Window > Dynamic Questing"
+   ]
   }
  ]
 }
