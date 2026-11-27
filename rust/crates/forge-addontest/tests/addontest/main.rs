@@ -400,6 +400,8 @@ mod packs_registry;
 #[path = "packs-visibility.rs"]
 mod packs_visibility;
 mod party;
+#[path = "party-card.rs"]
+mod party_card;
 #[path = "party-chat.rs"]
 mod party_chat;
 #[path = "party-group.rs"]
@@ -594,6 +596,8 @@ mod ui_update;
 mod ui_welcome;
 #[path = "ui-whatsnew.rs"]
 mod ui_whatsnew;
+#[path = "ui-when-passed.rs"]
+mod ui_when_passed;
 #[path = "ui-while-here.rs"]
 mod ui_while_here;
 #[path = "ui-window-drag.rs"]

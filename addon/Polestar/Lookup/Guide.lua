@@ -1348,7 +1348,8 @@ builders.quest = function(ctx, row)
 	local steps, err = questSteps(row.src.quest, ctx.player, ctx.from)
 	if not steps then return nil, err end
 	local last = steps[#steps]
-	last.goals[#last.goals + 1] = { t = "collect", item = ctx.id, itemName = ctx.name, count = 1 }
+	-- The reward waits with its quest (`rewardOf`, Engine's unavailableFor, #4505).
+	last.goals[#last.goals + 1] = { t = "collect", item = ctx.id, itemName = ctx.name, count = 1, rewardOf = row.src.quest }
 	if row.src.choice then
 		last.note = L["Choose this reward:"] .. " " .. ctx.name
 	end
@@ -1392,9 +1393,12 @@ builders.craft = function(ctx, row)
 				for _, s in ipairs(more or {}) do steps[#steps + 1] = s end
 			end
 			note = format(L["Use %s to learn it."], recipeName)
-		elseif trainer then
-			g.npc, g.npcName = trainer.id, trainer.name
-			at(g, trainerAt)
+		elseif row.recipeTrainer then
+			local teacher = C.Npc(row.recipeTrainer)
+			if teacher then
+				g.npc, g.npcName = teacher.id, teacher.name
+				at(g, row.recipeTrainerAt)
+			end
 		end
 		goals[#goals + 1] = g
 	end

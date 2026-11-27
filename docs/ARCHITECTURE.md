@@ -1345,6 +1345,7 @@ Compat.GetMapName(uiMapID)      -> string | nil
 Compat.MapName(uiMapID)         -> string | nil   (the client's name, else the Codex zone's)
 Compat.GetAreaName(areaID)      -> string | nil   (C_Map.GetAreaInfo: the area's name in the client's language)
 Compat.GetContinentMap(uiMapID) -> continent uiMapID | nil
+Compat.IsWideMap(uiMapID)       -> bool   (a continent or wider: UIMapType below Zone; false for a zone, narrower, or unknown)
 Compat.GetUnitMapPosition(unit) -> uiMapID, x, y | nil      (a party unit's place, 0-100; nil in instances / unknown)
 Compat.GetUnitZone(unit)        -> zone uiMapID | nil        (its best map climbed to Enum.UIMapType.Zone)
 Compat.GetPlayerFacing()        -> radians | nil   (0 = north, counter-clockwise positive)
@@ -1649,7 +1650,7 @@ as on a bag item (`W.ItemClick`: Shift links, Ctrl tries it on, Alt guides;
 | `turnin` | `quest`, `title` | `npc`/`npcName`, `object`/`objName`, `rewards = { choices = { { item, itemName, quality } }, items = { ... }, xp, money }` (copper), `direct`, with `direct` its giver's wait as an accept's (`pre`, `preAll`, `parent`) | completed; `direct` (never accepted): its QUEST_TURNED_IN during the step (latched) or the completed flag, not the session's turn-ins, so one hand-in of a repeatable closes one goal. It reads "Hand in" with `directText` ("<giver> offers it and takes it back in one talk: it never goes in your quest log", on `UI.GoalSubline`), and is orphaned only through the quest its giver waits on: one this guide accepts that the character neither has nor has done and does not take at or before the step (`Own.directOrphaned`: Unbagwa's Stranglethorn Fever 349 without Fin Fizracket's 348) |
 | `complete` | `quest`, `title` | — | ready for turn-in or completed |
 | `kill` | `target` | `npc`, `count`, `quest`, `oi` | its objective finished (the quest-log line named after `target`, else line `oi`), or quest ready/completed (not while the log lists no objectives yet, right after the accept); without `quest`: manual |
-| `collect` | `item`, `itemName` | `count`, `quest`, `oi`, `gather` (`true` or `{ skill, skillLine, rank, min, max }`: the item's gather way, applying only while its way is gather; see "Materials") | objective finished (the line named after the item, else `oi`) / quest ready (as `kill`) / completed; without `quest`: item count ≥ `count`, or, for a single item the step's next `accept … item` starts its quest with (paired as in the step view), that quest in the log or done (accepting uses the item up) |
+| `collect` | `item`, `itemName` | `count`, `quest`, `oi`, `gather` (`true` or `{ skill, skillLine, rank, min, max }`: the item's gather way, applying only while its way is gather; see "Materials") | objective finished (the line named after the item, else `oi`) / quest ready (as `kill`) / completed; without `quest`: item count ≥ `count`, or, for a single item the step's next `accept … item` starts its quest with (paired as in the step view), that quest in the log or done (accepting uses the item up); for a single item a later `turnin` of the guide asks for (`QuestDB.Asks`, `Own.handInsOf`: a library book, #4280), also that quest handed in (not a `direct` or `repeatable` hand-in: the client never flags those completed, but the session's hand-ins (`turnedIn`) count for `questDone`, so one round would collect every later round's item; without the quest database, the bag count alone). The bank never counts: the hand-in takes the item from the bags |
 | `goto` | `map`, `x`, `y` | `text`, `r` (default 8 yd), `area` (its name in the client's language shows instead of `text`) | within radius, **or** gone into its `area` (subzone text equals the client's name of it, not the zone's, while indoors, after being seen elsewhere since the step came up; not for a goto after one into the same area in the step), **or** any later goal in the step is done, **or**, when only gotos, notes and goals that do not apply follow it in the step, the next step that applies is done with a quest goal of it done (`Own.nextStepDone`, counted as anchorStep counts: not a skipped step or one with `only`, not a goal with `only`; a cave's mouth or a dock ahead of work done ahead of the guide, #240) |
 | `talk` | `npc`, `npcName` | — | the player acts at that NPC during this step: a gossip option picked (`C_GossipInfo.SelectOption`/`SelectOptionByIndex`, `SelectGossipOption`, post-hooked), a quest accepted, completed or handed in there (`AcceptQuest`, `CompleteQuest`, `GetQuestReward`, QUEST_ACCEPTED / QUEST_TURNED_IN while its window is open or within 2 s of it closing), or its trainer, merchant or flight window opened; a gossip or quest window only opened is no check-off (#741); else manual |
 | `interact` | `object`, `objName` | `quest`, `oi` | objective state if `quest` (the line named after the object, else `oi`); else manual |
@@ -2608,8 +2609,11 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   while the player is within `behavior.whileHereRadius` of one of them, and
   before the NPCs farther off (`npcSpots`/`npcsFar`; #1623); a check each
   second re-orders them as the player crosses the radius, and each name takes
-  its own kind's mark and ping. The step key, while it targets or has nothing
-  else to do, takes the same names alone (`HereNames`) after the step's own,
+  its own kind's mark and ping. Clicking a line with an NPC, such as a
+  pick-up, hand-in or flight master, puts that NPC first on the target
+  button. The step's own NPCs still go behind the lines' mobs when far away.
+  The step key, while it targets or has nothing else to do, takes the same
+  names alone (`HereNames`) after the step's own,
   as many as fit its macro, and on an NPC goal after or before the NPC the
   same way (`StepAction`; `behavior.whileHereStepKey`, on by default; #1316,
   #1623). Both macros change only out of combat (`QoL.Secure`). An item keeps the step key, including the
@@ -3886,7 +3890,14 @@ quests it left out (`feedSkips`), in `CharState().skipStored[guideId][step]`,
 and its undo (`Unskip`, `Goto`) takes them back with it, so a step passed at
 level 19 for `when level>=20` comes back at 20 once the skip is undone
 (`Own.skipStore`, `Own.skipRestore`; a step the player keeps meanwhile,
-`Own.keep`, stays). The pin is saved (`pins`), so a reload
+`Own.keep`, stays). A step the route passed because its `when` failed is
+saved as skipped too, with the route's mark beside it
+(`CharState().whenPassed[guideId][step]`, set by `Own.latchWhen` and
+`Own.settlePending`, dropped by the player's skips and unskips; #4158): the
+step list says "Not for you" and why, with no Unskip (one whose condition
+holds now says the guide passed it, with its Unskip), and the end card lists
+the quest chains left out. A skip saved without the mark reads as the
+player's. The pin is saved (`pins`), so a reload
 shows the step the player was looking at; it is released at the live step,
 and while the step it shows gets done it follows forward (behind the live
 step up to it, ahead of it to the next open step, latching the step's
@@ -4915,7 +4926,7 @@ or the minimap.
 
 ```lua
 Polestar.Pins.SetLayer(layer, pins, opts)   -- replace a layer; opts = { world = true, minimap = true, edge = false, scale = 1,
-                                            --   minimapAreas = false, minMapType = nil, worldLayout = nil, summary = nil }
+                                            --   minimapAreas = false, minMapType = nil, dense = false, worldLayout = nil, summary = nil }
 Polestar.Pins.ClearLayer(layer)
 Polestar.Pins.SetLayerVisible(layer, visible)
 -- pin = { map, x, y, f, icon (Theme.Media name, texture path, or "map:<name>": a map mark), size, minimapSize,
@@ -4998,7 +5009,12 @@ Pins are drawn on the world map for the map being viewed (converted through Comp
 for other maps). Optional `worldLayout(projected, view)` receives this layer's
 `{ pin, x, y }` entries in viewed-map percentages and returns its world-map
 layout; map and canvas-size changes run it again. It never changes minimap
-pins. `minMapType` hides world pins on broader views. `summary` (what the
+pins. `minMapType` hides world pins on broader views. `dense` marks a layer of
+many pins (rare and treasure spawns, a target's spawn spots): it is a
+`minMapType` of Zone, so it shows on zone maps, narrower views and the
+minimap and never on a continent or the world map, where its pins buried the
+zone names and levels; the route, the target and the zone levels stay there.
+`summary` (what the
 layer's pins are, as the player reads them: the quest layers' "Hand-ins",
 "Objectives", "Available quests") gathers the pins of every such layer into
 one pin per zone on a continent or world map: a medallion with a glyph per
@@ -6979,12 +6995,13 @@ Polestar.Nav.nearby.Near(kind, yards) -> place, yards | nil, reason   -- the nea
 Polestar.Compat.ItemKind(itemID) -> classID, subclassID ; ItemBinding(itemID) -> bindType | nil (not cached)
 ```
 
-What is asked for: every `collect` goal of the running guide that is for
-this character (`Engine.Applies`) and serves a quest, from the live step on,
-and before it while its quest is in the log (the hand-in is still ahead).
+What is asked for: applicable `collect`, `complete` and `turnin` goals
+of the running guide, from the live step on and before it while their quest
+is in the log. Complete and turn-in goals use the quest's item objectives
+from the quest database. Self-Found characters have no auction buys.
 The quest is the goal's own, else the first quest within 40 steps whose
-objectives ask for the item. Optional goals, goals naming the NPC who hands
-the item over, quests done or skipped, and quests that hand the item over
+objectives ask for the item. Optional goals and steps, goals naming the NPC
+who hands the item over, quests done or skipped, and quests that hand the item over
 themselves are left out. Scope `all` adds the item objectives of the other
 quests in the log, but not of a quest whose every goal in the running guide
 is optional (an `optional` goal or step, #2553: the guide takes it only when
@@ -6996,14 +7013,13 @@ bags, the bank, the mail and what was bought and is on its way;
 The rule. An item is an auction house buy when it is all of:
 
 1. **Tradeable**: the client says it is no Quest item (class 12) and binds
-   neither when picked up nor as a quest item (bindType 1 or 4). An item the
-   client has not cached is asked for (`GET_ITEM_INFO_RECEIVED`) and judged
-   when it arrives. Bind on equip and bind on use items trade.
+   only on equip or use, if at all. An item the client has not cached is
+   asked for (`GET_ITEM_INFO_RECEIVED`) and judged when it arrives.
 2. **Sold by no merchant**: the guide has no `buy` goal for it (the route
    buys it there, `QoL/Buy.lua`; Restock tops up the rest), and the quest
    database names no vendor for it, whatever the vendor's side or stock.
-3. **Not got on the way**: the whole count takes 20 kills or loots or more on
-   average (count / drop chance; `LONG_FARM`), or nothing drops it. The
+3. **Not obtained on the way**: the whole count takes 20 kills or loots or
+   more on average (count / drop chance; `LONG_FARM`), or nothing drops it. The
    chance is the best of the goal's own sources (`fromNpcs`, else `fromId`)
    in the quest database's drop table, which keeps an item's 8 best
    droppers: a creature past them drops it at most at the 8th's chance. A
@@ -7012,18 +7028,21 @@ The rule. An item is an auction house buy when it is all of:
    and ore nodes (trade goods subclasses 9 and 7) only for a character with
    Herbalism or Mining; without the skill an item only nodes give is listed
    (`gather`). Chests and crates below that chance do not count. A chance
-   the data does not know (0) leaves the item out. An item the quest
-   database knows no source for is judged by the Codex (loaded for it, never
+   the data does not know (0) is left out. An item the quest database knows no
+   source for is judged by the Codex (loaded for it, never
    in combat): listed when a profession makes it (`made`) or when the guide's
    goal for it stands within 40 yards of an auctioneer (`ah`: the guide
    already sends the player there); left out otherwise (a container, a quest
    or a gift the guide knows a way to).
 
+Cached auction prices only supply estimates and totals; they never make
+an item eligible.
+
 The quest database loads for it (`QuestDB.IsWanted` counts
 `qol.auctionBuys`). The lists are built when asked, in two layers: the
 judgement (what the quests want and which of it the rule lists) is kept
 until a step, the guide, the log, a skill, the Codex, an item the client
-sent or the setting changes; the counts are taken again when only the bags
+sent, the setting changes, or a price cache updates; the counts are taken again when only the bags
 change (`BAG_UPDATE_DELAYED`, `MATERIALS_COUNTS`), so a merchant's or a
 mailbox's run of bag updates costs a count, never the rule. A pass decodes
 each quest's objectives once. `AUCTION_BUYS_CHANGED(arrived)` fires once
@@ -7054,8 +7073,9 @@ to be dismissed:
   (`Engine.EscortRunning`), while Polestar or the guide window is hidden.
   The Codex is loaded for it only in a rest area with something to buy.
 - **The list** (`PolestarAuctionBuys`, built on first use, registered with
-  the gamepad, Escape closes it): a row per item, its icon, "12 Silk Cloth",
-  "For Caught! · About 152 kills to farm · 3 in your bags and bank", and Show
+  the gamepad, Escape closes it): a scrolling row per item with its icon, remaining count, quests, and cached
+  quote. The quest total flags incomplete quotes or quantities. Open guide
+  rows for eligible item objectives offer the list as an optional purchase. Show
   me the auction house. Under them, headed "MATERIALS FOR TAILORING 1-300",
   the running profession guide's materials to buy (`Materials.BuyRows`: their
   way is Buy and some is still to get), "47 Wool Cloth", "Tailoring 75-150 ·
@@ -7064,9 +7084,9 @@ to be dismissed:
   house buys (N)" while there are any) and `/polestar ah`. At the Auction
   House (`AUCTION_HOUSE_SHOW`) it opens beside the game's window while either
   group has something to buy, and goes with it (`AUCTION_HOUSE_CLOSED`); each
-  row then has a Search (`Materials.Search`: the game's own buy view of the
-  item, the count filled in; the player presses Buy), and Show me the auction
-  house goes.
+  row offers a search when supported. `Materials.Search` opens the native
+  buy view or an exact Auctionator search with the missing quantity. Show me
+  the auction house goes while the Auction House is open.
 
 The heads-up card itself is registered with the gamepad as a window that
 showed on its own: it waits for the focus binding, then the D-pad walks its
@@ -7246,6 +7266,16 @@ Polestar.Compat.SenderName(sender) / SenderIsUnit(sender, unit) / SenderIsMe(sen
   moves only the member's XP percent fires instead (the same 0.5 s delay):
   the XP shows only here, so the guide window and the engine skip that
   update; a "2U|" that changes nothing fires neither.
+  The guide window's party line (`Party.StepLine`, drawn by
+  `GF.UpdateParty`) leaves the window while the panel is open, in every
+  layout: the panel shows who is on which step, and `StepLine(true)` keeps
+  only "Waiting on Ana", with "Go on without them", which the panel doesn't
+  say. `PARTY_PANEL_TOGGLED` (the panel shown or hidden) repaints it. Under
+  the Atlas layout the line is a card: closed with its ×, it stays closed
+  (kept for the session) until the group's members change or the line gains
+  a state it didn't hold then: a wait, or a member ahead, behind or on
+  another guide (`StepLine`'s third value, `{ who, marks }`); "With" and
+  "Everyone's ready" never bring it back.
 - Loot (UI/PartyLoot.lua, `party.lootNeeds`): on `LOOT_OPENED` and
   `START_LOOT_ROLL`, a line per item a member's counts are short of while
   yours are not (the item's log line from the active guide's collect goals,
@@ -7596,7 +7626,7 @@ flight timer and the instance tracker are set under Quality of Life.
   `Maps/MobMarkers.lua`, rohkin's Mob Markers, #1129; settings on the Map pins
   page's Pins tab): a skull on its medallion at every spawn of the mobs and
   objects the quests shown need (the quest log's open quests, only the guide
-  step's with `mobMarkers.stepOnly`), on the world map and the minimap; skull
+  step's with `mobMarkers.stepOnly`), on the world map's zone views and the minimap (never on a continent or the world: `Compat.IsWideMap`); skull
   colour per quest, a ring per mob (`Media/Map/mob-ring16/32/64`, from
   `tools/media/map.js`), the pickup bag for an object. Data: the Codex's quest
   objectives, an item's drops and giving objects, and their spawns (world yards
@@ -7772,10 +7802,10 @@ for that press comes from the macro it ran (`pressedKind`, `pressedMixed`).
 
 ### Clickable objectives
 
-`qol.guideNameTarget` is off by default. Enabling it extends objective-row
-navigation clicks to target the objective's NPC. Marking uses the existing
-`qol.markTarget`, `qol.markMob` and `qol.markNpc` settings, including their
-shared icon cycle. Opt-in is a product decision:
+`qol.guideNameTarget` is off by default. Enabling it adds targeting to clicks
+on objective rows, NPC headings and While you're here lines. Marking uses
+the existing `qol.markTarget`, `qol.markMob` and `qol.markNpc` settings,
+including their shared icon cycle. Opt-in is a product decision:
 existing navigation clicks should not unexpectedly replace the player's
 target. The default can be changed independently of the targeting code.
 `QoL.Buttons.GuideNameMacro` resolves one NPC belonging to that
@@ -7795,15 +7825,15 @@ The command sequence is checked against Forever 1.60.1 (70450):
 [exact targeting and clearing](https://github.com/Gethe/wow-ui-source/blob/172a387e3ab85b26e6640d3058d5ec1e6ccd4c63/Interface/AddOns/Blizzard_ChatFrameBase/Shared/SlashCommands.lua#L489),
 and [marker commands](https://github.com/Gethe/wow-ui-source/blob/172a387e3ab85b26e6640d3058d5ec1e6ccd4c63/Interface/AddOns/Blizzard_ChatFrameBase/Shared/SlashCommands.lua#L1451).
 
-`UI/NameTargets.lua` pools secure buttons over objective rows (and the NPC
-heading's text), independently of the guide's frame tree. Absolute UIParent
-positions follow the guide's layout, animation and dragging. A secure
-visibility driver hides the buttons
+`UI/NameTargets.lua` pools secure buttons over objective rows, NPC heading
+text and targetable While you're here lines, independently of the guide's
+frame tree. Absolute UIParent positions follow the guide's layout,
+animation and dragging. A secure visibility driver hides the buttons
 in combat; no protected attributes or geometry change under lockdown, and a
 combat reload defers button creation. The normal guide remains interactive.
 After combat the buttons use the latest displayed goals. Left clicks retain
-arrow navigation; the quest's right-click menu, non-quest completion and
-adjacent controls keep working.
+arrow navigation. The quest's right-click menu, middle-click to show it in
+the quest log, non-quest completion and adjacent controls keep working.
 A left-click that finds no living target reports the NPC name through
 `UIErrorsFrame` (chat fallback), before navigation can reuse the button.
 The overlay sets `type1`, so a Shift-, Ctrl- or Alt-click runs no macro: it
@@ -11170,7 +11200,7 @@ Polestar.Rares.FounderSighting(unit, source, guid)  -- a player unit from Detect
   own unit menu targets a surnamed player by first name when regional
   unique names are off), `/wave`. Only the player's click runs it.
 - **Pins**: layers `rares.rare` and `rares.treasure` through `Polestar.Pins`,
-  world map and minimap per kind (`rares.worldRares`, `worldTreasures`,
+  zone views of the world map and the minimap per kind (`rares.worldRares`, `worldTreasures`,
   `minimapRares`, `minimapTreasures`; all off by default, Map → Rares, travel & zones →
   Rares and treasures); one pin per distinct spawn (spawns of
   one rare within 1.5 map percent share it), rares at grey levels left out
@@ -11859,7 +11889,9 @@ extended cost, which sell for a currency such as Merchant's Favor rather than go
 whose item only they sell has `source: "currency"` and no `cost`); ranks carry `minSkill`, `spell`, `trainers { A, H }`, `cost`
 (copper, the sniffed trainer lists' price of the spell that teaches the rank; the rank's
 `trainers` also gain every spawned creature whose sniffed list teaches it, such as Zephras Isle's) and,
-for secondary skills, `book`/`quest`; recipes may carry `enchant`,
+for secondary skills, `book`/`quest`. `recipes[].trainers` lists the NPC IDs for each faction
+(`Alliance`, `Horde`) known to teach that spell. Each NPC's sniffed list takes precedence over its
+other lists; the field is omitted if no eligible teacher is known. Recipes may carry `enchant`,
 `learnedAtEstimated`, `learnedAtFrom`, `requires` (specialisation), `reputation { faction,
 standing }`, `tools`, `focus`, `races`, `classes`, `skillUps`. A trainer recipe's
 `learnedAt` and `cost` come from the Forever TrinityCore world DB's sniffed

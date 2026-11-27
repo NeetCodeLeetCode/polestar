@@ -4267,10 +4267,18 @@ test('Phear\'s report: a kill or collect leads to the camp that holds its mobs, 
 // calibrated level model).
 const H40 = (n) => `forever/horde/40-50/${n}.guide`;
 
-test('Horde 40-50 binds: Stranglethorn sets none, Camp Mojache is bound once (0.4.0 route audit)', { skip }, () => {
-	// The travel sweep found no trip in 30-40/06 or 40-50/01 that hearths back to Grom'gol, Booty Bay or Stonard.
-	const stv = goals(H40('01-stranglethorn-vale')).filter(({ goal }) => goal.t === 'sethome');
-	assert.deepEqual(stv.map(({ goal }) => goal.location), [], '40-50/01 leaves the hearthstone where it is');
+// #4479: the riding trainer trip at 40 (Orgrimmar, Sen'jin, Bloodhoof, Valanaar or Brill) comes back to Grom'gol; with
+// the hearthstone left at Tarren Mill it came back by zeppelin (players' recordings), so the first Grom'gol stop binds
+// there and the riding steps say to hearth back. Camp Mojache stays bound once on 40-50/02 (0.4.0 route audit).
+test('Horde 40-50 binds: Stranglethorn binds Grom\'gol on its first stop for the riding trip back, Camp Mojache is bound once (#4479)', { skip }, () => {
+	const list = goals(H40('01-stranglethorn-vale'));
+	const stv = list.filter(({ goal }) => goal.t === 'sethome');
+	assert.deepEqual(stv.map(({ goal }) => goal.location), ["Grom'gol Base Camp"], '40-50/01 binds once, at Grom\'gol');
+	const bind = at(list, 'the Grom\'gol bind', (g) => g.t === 'sethome');
+	assert.equal(list[bind].s, list[at(list, 'turnin 1240 (Kin\'weelay)', is('turnin', 1240))].s, 'on the first Grom\'gol stop');
+	const trips = [...new Set(list.slice(bind).filter(({ step }) => step.title === 'Riding at 40').map(({ step }) => step))];
+	assert.ok(trips.length >= 5, `every race's riding step comes after the bind (${trips.length})`);
+	for (const step of trips) assert.match(step.note || '', /hearth back to Grom'gol/, `${(step.only && step.only.races || []).join(',')}: the riding step says to hearth back`);
 	const binds = goals(H40('02-feralas')).filter(({ goal }) => goal.t === 'sethome');
 	assert.deepEqual(binds.map(({ goal }) => goal.location), ['Camp Mojache'], '40-50/02 binds Camp Mojache once, at Innkeeper Greul');
 });
@@ -18217,6 +18225,25 @@ test('#2419: Stranglethorn (Alliance): the first loop starts at Booty Bay, never
 	assert.ok(at(list, 'turnin 198', is('turnin', 198)) < at(list, 'Kurzen kills', (g) => g.t === 'kill' && g.quest === 203), 'Thorsen\'s supplies on the first Rebel Camp stop');
 });
 
+// #4479 (a Discord report, Alliance Stranglethorn 32-45: "in Booty Bay I had to make the full trip like 3 times"): the
+// second loop (30-40/04b) ends with the walk from the north of the jungle down to Booty Bay, about 8 minutes on foot,
+// and 30-40/02-desolace between the loops bound the hearthstone at Nijel's Point, whose own walks back take 3 minutes or
+// less. Players' recordings: 10 people walked that last leg, 9 of them bound at Nijel's Point with the stone ready. Booty
+// Bay's bind from the first loop now stands through Desolace, and the step says to hearth back.
+test('#4479: Stranglethorn (Alliance): the first loop\'s Booty Bay bind brings the second loop back from the north', { skip }, () => {
+	const first = goals('forever/alliance/30-40/04-stranglethorn-vale.guide');
+	assert.deepEqual(first.filter(({ goal }) => goal.t === 'sethome').map(({ goal }) => goal.location), ['Booty Bay'], 'the first loop binds Booty Bay');
+	assert.equal(compiled('forever/alliance/30-40/04-stranglethorn-vale.guide').next, 'forever/alliance/30-40/02-desolace');
+	const desolace = goals('forever/alliance/30-40/02-desolace.guide');
+	assert.deepEqual(desolace.filter(({ goal }) => goal.t === 'sethome').map(({ goal }) => goal.location), [], 'Desolace leaves the hearthstone in Booty Bay');
+	assert.equal(compiled('forever/alliance/30-40/02-desolace.guide').next, 'forever/alliance/30-40/04b-stranglethorn-vale');
+	const second = goals('forever/alliance/30-40/04b-stranglethorn-vale.guide');
+	const handIn = at(second, 'turnin 577 (Drizzlik)', is('turnin', 577));
+	assert.ok(!second.slice(0, handIn).some(({ goal }) => goal.t === 'sethome'), 'no bind before the Booty Bay hand-ins');
+	const crocs = second[at(second, 'the Snapjaw Crocolisk skins', (g) => g.t === 'collect' && g.quest === 577)];
+	assert.match(crocs.step.note || '', /hearth back to Booty Bay/, 'the last northern step says to hearth back');
+});
+
 // #2587 (swork1, 0.4.0, Alliance Wetlands): the Dun Modr stop offered Spark of Freedom to a group but not Motley's The
 // Dark Iron War or Ashlan's Bring Back a Bang, group quests among the same elite Dark Irons. They are asked the same way:
 // only a player who chooses the group way gets them, the solo route never does.
@@ -19950,4 +19977,39 @@ test("forever/alliance/50-60/03-winterspring.guide: nepyanbin's report: Eridan's
 	const note = list.find(({ goal }) => goal.t === 'note' && /next task, .*Kayneth|next task, .*\{npc:3848\}/.test(goal.text || ''));
 	assert.ok(note, "the note on Eridan's next task is in the guide");
 	assert.match(note.goal.text, /next task, \{quest:4261\},/, note.goal.text);
+});
+
+// #4430 (Oscure3, 0.4.3.1): the Cracked Silithid Carapace that starts Parts of the Swarm (1148) drops only for a player
+// on The Swarm Grows (1147): in players' recordings all 96 accepts of 1148 came with 1147 in the log. The dig site's
+// step asked a player without 1147 to kill silithid for a carapace that never dropped; it shows only with 1147 now
+// (guide-fixes 4430-parts-of-the-swarm-carapace-gate).
+test("forever/horde/30-40/02-thousand-needles.guide: Oscure3's report: the carapace for Parts of the Swarm is asked only on The Swarm Grows (#4430)", { skip }, () => {
+	const list = goals('forever/horde/30-40/02-thousand-needles.guide');
+	const carapace = list[at(list, 'collect 5877 (Cracked Silithid Carapace)', (g) => g.t === 'collect' && g.item === 5877)];
+	const take = list[at(list, 'accept 1148 (Parts of the Swarm)', is('accept', 1148))];
+	for (const { step } of [carapace, take]) assert.ok(holdsQuest(step, 1147), `${step.title}: only with The Swarm Grows (1147) in the log`);
+});
+
+// #4439 (Meta, 0.4.3.1): the Veteran of the Third War (255009), who gives Anywhere But Here (92100), was not at the
+// guide's one spot. Players' recordings open his window at 30 places across Mourning's Rest, from 19.9,59.6 to
+// 25.1,51.5 (30 people); the step says so instead of "where the recording met him".
+test("forever/50-60/mount-hyjal.guide: Meta's report: the step says where in Mourning's Rest the Veteran can be (#4439)", { skip }, () => {
+	const list = goals('forever/50-60/mount-hyjal.guide');
+	const { step } = list[at(list, 'accept 92100 (Anywhere But Here)', is('accept', 92100))];
+	const tip = [step.tip, step.note].flat().filter(Boolean).join(' ');
+	assert.doesNotMatch(tip, /where the recording met him/, tip);
+	assert.match(tip, /\(20,60\).*25,51/, tip);
+});
+
+// #4435 (foggel), #4487 (Akuma), #4491 (ArcticWildWolf), 0.4.3.1: Hadoken Swiftstrider doesn't offer Stinglasher (7731)
+// while Tabetha's Task (2861) is in the quest log; once it is handed in or abandoned he does (players' recordings: of
+// the 34 people offered Zukk'ash Infestation, the 31 without 2861 in the log were offered Stinglasher with it, the 3
+// with it were not). The route never takes Tabetha's Task, so the accept's step says what to do (guide-fixes
+// 4487-stinglasher-tabethas-task-tip).
+test("forever/horde/40-50/02-feralas.guide: Stinglasher's step says to hand in or abandon Tabetha's Task first (#4435, #4487, #4491)", { skip }, () => {
+	const list = goals('forever/horde/40-50/02-feralas.guide');
+	const take = list[at(list, 'accept 7731 (Stinglasher)', is('accept', 7731))];
+	const text = [take.step.note, take.step.tip].flat().filter(Boolean).join(' ');
+	assert.match(text, /Tabetha's Task/, 'the step names Tabetha\'s Task');
+	assert.match(text, /hand it in to Tabetha in Dustwallow Marsh or abandon it/, 'and what to do with it');
 });
