@@ -287,6 +287,18 @@
 			"exclude": true,
 			"source": { "kind": "client", "ref": "Forever client AreaTable (1.60.1.70888): area 16560 (CityofDalaran) is not the City of Dalaran dungeon's area 16544 (RuinsofDalaran) nor under it; the quest is filed under 16560" },
 			"note": "Unstable Magic (Alliance, level 60): Archmage Celindra's quest in Dalaran city; one recorded player took it from her there."
+		},
+		{
+			"quest": 2948,
+			"instance": "gnomeregan",
+			"source": { "edition": "forever", "kind": "quest", "id": 2948, "note": "follows Return of the Ring (2947); Talvash del Kissel gives it and ends it" },
+			"note": "Gnome Improvement (Alliance; Talvash del Kissel, Ironforge): the follow-up of Return of the Ring, which is picked up in Gnomeregan. It asks for a Silver Bar and a Moss Agate, so no rule ties it to the dungeon; the row keeps it on the page, where its hand-in guide offers it with Return of the Ring (#4279)."
+		},
+		{
+			"quest": 2950,
+			"instance": "gnomeregan",
+			"source": { "edition": "forever", "kind": "quest", "id": 2950, "note": "follows Return of the Ring (2949); Nogg gives it and ends it" },
+			"note": "Nogg's Ring Redo (Horde; Nogg, Orgrimmar): the follow-up of Return of the Ring, which is picked up in Gnomeregan. It asks for a Silver Bar and a Moss Agate, so no rule ties it to the dungeon; the row keeps it on the page, as Gnome Improvement is for the Alliance (#4279)."
 		}
 	]
 }
