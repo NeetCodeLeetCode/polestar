@@ -315,6 +315,18 @@ local BUILTIN = {
 					search = "hand in, turn in, detour, out of the way, seconds, nearby hand-ins",
 					disabled = function() return not (ns.Get("behavior.whileHere") and ns.Get("behavior.whileHereTurnins")) end },
 			} },
+		-- 0.4.4's arrow that takes a nearby objective by itself (Engine Own.hereAutoAim): off by default.
+		{ kind = "toggle", key = "behavior.whileHereAim", label = L["Arrow takes nearby objectives"], new = "0.4.4",
+			help = L["The arrow leads to a suggested objective by itself when it costs only a few seconds off the way the guide leads, as if you had clicked it. The guide stays as it is, and the arrow goes back to it when the objective is done, you walk off or you dismiss the suggestion."],
+			search = "arrow, detour, nearby objective, automatic, auto aim, on the way, while you're here, lead me",
+			disabled = function() return not ns.Get("behavior.whileHere") end,
+			children = {
+				{ kind = "slider", key = "behavior.whileHereAimSeconds", label = L["Objectives: how far out of your way"], min = 5, max = 60, step = 5, new = "0.4.4",
+					format = function(v) return L["%d s"]:format(v) end,
+					help = L["The seconds of extra walking an objective may cost, to it and back on your way, for the arrow to take it by itself."],
+					search = "arrow, detour, seconds, out of the way, nearby objective",
+					disabled = function() return not (ns.Get("behavior.whileHere") and ns.Get("behavior.whileHereAim")) end },
+			} },
 		-- 0.3.7's flight paths you pass (Engine Own.hereBuild).
 		{ kind = "toggle", key = "behavior.whileHereFlights", label = L["Flight paths you pass"],
 			help = L["Also a friendly flight master near you whose flight path you haven't learned yet. Learning it ticks the guide's later step for it too."],

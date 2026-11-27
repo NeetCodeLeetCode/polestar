@@ -53,6 +53,8 @@ ns.RegisterDefaults("behavior", {
 	whileHereVendors = true, -- also a merchant or repairer on the way when the route heads out with the bags nearly full or the gear worn (Own.hereVendor, #2344)
 	whileHereSellSlots = 4, -- ... sell when fewer bag slots are free than this or than the next steps' loot (0-16; 0: the loot alone)
 	whileHereRepairPercent = 30, -- ... repair when an equipped piece is under this share of its durability (0-90; 0: never)
+	whileHereAim = false, -- the arrow leads to a nearby objective of a later step by itself when it costs few seconds off the way (Own.hereAutoAim)
+	whileHereAimSeconds = 15, -- seconds of extra walking such a detour may cost (5-60)
 	whileHereSound = true, -- a soft chime for each line that appears, at least 5 s apart (UI/WhileHere.lua)
 	whileHereStepKey = true, -- the step key also targets the lines' mobs, after the step's own (QoL/Buttons.lua, Buttons.HereNames)
 })
@@ -16105,7 +16107,8 @@ end
 -- distance, and two shown swap only once the lower is HERE_ORDER yards
 -- nearer, so rows do not jump. Allocation-free. With HERE_SHOW lines up,
 -- only those are measured. True when a line the player had clicked went
--- (the arrow goes back to the guide). A build an evaluation queued for the
+-- (the arrow goes back to the guide), or when the arrow took a line by itself
+-- (Own.hereAutoAim). A build an evaluation queued for the
 -- next frame (Own.hereLater) runs first when the poll comes before it, so
 -- the poll never measures the candidates or the radius from before.
 function Own.hereTick(c, px, py)
@@ -16185,6 +16188,7 @@ function Own.hereTick(c, px, py)
 	for _, m in pairs(Own.hereMutes) do
 		if not m.far and (m.c ~= c or (px - m.x) ^ 2 + (py - m.y) ^ 2 >= away) then m.far = true end
 	end
+	if not timedOnly and Own.hereAutoAim(c, px, py) then aimed = true end
 	if Own.hereOnN >= Own.HERE_SHOW or Own.hereAllN == 0 then
 		Own.hereVendorTick(c, px, py, timedOnly)
 		Own.hereFlyTick(c, px, py, timedOnly)
@@ -16391,12 +16395,57 @@ end
 function Engine.AimWhileHere(i)
 	local cur = Own.hereOn[i or 1]
 	if not (cur and guide and current) then return false end
+	if not Own.hereAimAt(cur) then return false end
+	evaluate()
+	return true
+end
+
+-- Line `cur` becomes the arrow's aim (the player's click, Engine.AimWhileHere, or
+-- Own.hereAutoAim), without the evaluation: the caller asks for one. False when
+-- the arrow has no place to lead to.
+function Own.hereAimAt(cur)
 	-- The arrow leads to the spot the row measures to, until it is reached.
 	if cur.spot and cur.goal.spots then Spots.chosen[cur.goal], Spots.pinned[cur.goal] = cur.spot, cur.spot end
 	if not waypointOf(cur.g, cur.goal, nil, cur.s) then return false end
 	aim, cur.since = cur.goal, GetTime()
-	evaluate()
 	return true
+end
+
+-- Seconds of extra walking that objective line e (a "work" line) adds to the way the arrow
+-- leads now, from world position c, px, py; nil when it cannot be measured (another
+-- continent, no distance yet). The same price a hand-in pays (Own.hereDetour).
+function Own.hereWorkDetour(e, c, px, py)
+	local w = e.spot and Spots.world[e.spot]
+	local gc, gx, gy
+	if w then
+		gc, gx, gy = w[1], w[2], w[3]
+	else
+		gc, gx, gy = goalWorld(e.goal)
+	end
+	if gc ~= c or not e.d then return nil end
+	return Own.hereDetour(c, px, py, gx, gy, e.d)
+end
+
+-- behavior.whileHereAim: the arrow takes a "While you're here" objective line by itself,
+-- as if the player had clicked it, when the line costs at most
+-- behavior.whileHereAimSeconds of extra walking on the way the guide leads (the nearest
+-- such line first). Only while no goal is aimed (the player's click, a row, an earlier
+-- pick stays), outside combat (Own.hereTick) and with no timed quest running. It adds no
+-- accept, so the quest log and the escort and level rules of the lines hold as before.
+-- The line leaves as any other does: its work is done, the player walks off, or the
+-- player dismisses it, and the arrow goes back to the guide. True when it took one.
+function Own.hereAutoAim(c, px, py)
+	if aim or not ns.Get("behavior.whileHereAim") then return false end
+	local limit = tonumber(ns.Get("behavior.whileHereAimSeconds")) or 15
+	local best, bestSecs
+	for i = 1, Own.hereOnN do
+		local e = Own.hereOn[i]
+		if e.kind == "work" then
+			local secs = Own.hereWorkDetour(e, c, px, py)
+			if secs and secs <= limit and (not bestSecs or secs < bestSecs) then best, bestSecs = e, secs end
+		end
+	end
+	return best ~= nil and Own.hereAimAt(best)
 end
 
 -- The player's "not now" for line i (default 1): it goes, muted near here
