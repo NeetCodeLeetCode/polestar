@@ -1012,6 +1012,24 @@
 			"note": "Fire Plume Forged (5802, the Horde's Scholomance key): as 5801. Source: the game's quest text ('Take the Skeleton Key Mold and 2 Thorium Bars to the top of Fire Plume Ridge in Un'Goro Crater. Use the Skeleton Key Mold by the lava lake'); the server data has the mold's use at the lava lake (objects 4004, 177306)."
 		},
 		"5097": {
+			"kinds": [
+				{
+					"kind": "use-item-on-mob",
+					"confidence": "high"
+				}
+			],
+			"params": [
+				{
+					"kind": "use-item-on-mob",
+					"item": 12815,
+					"npcs": [
+						10902,
+						10903,
+						10904,
+						10905
+					]
+				}
+			],
 			"steps": [
 				{
 					"n": 1,
@@ -1021,9 +1039,27 @@
 					"confidence": "high"
 				}
 			],
-			"note": "All Along the Watchtowers (5097, the Alliance's Scholomance key): its four objectives are tower markers marked with the Beacon Torch (12815). Source: the game's quest text ('Using the Beacon Torch, mark each tower in Andorhal; you will need to stand in the doorway of the tower'); the server data has the torch's use at the four towers."
+			"note": "All Along the Watchtowers (5097, the Alliance's Scholomance key): its four objectives are tower markers marked with the Beacon Torch (12815). Source: the game's quest text ('Using the Beacon Torch, mark each tower in Andorhal; you will need to stand in the doorway of the tower'); the server data has the torch's use at the four towers. The game credits each mark as a kill of the tower (npcs 10902 to 10905), so the use-item-on-mob kind lets the Codex word each one as a use of the torch (#4346)."
 		},
 		"5098": {
+			"kinds": [
+				{
+					"kind": "use-item-on-mob",
+					"confidence": "high"
+				}
+			],
+			"params": [
+				{
+					"kind": "use-item-on-mob",
+					"item": 12815,
+					"npcs": [
+						10902,
+						10903,
+						10904,
+						10905
+					]
+				}
+			],
 			"steps": [
 				{
 					"n": 1,
@@ -1033,7 +1069,7 @@
 					"confidence": "high"
 				}
 			],
-			"note": "All Along the Watchtowers (5098, the Horde's Scholomance key): as 5097. Source: the game's quest text ('Using the Beacon Torch, mark each tower in Andorhal; you will need to stand in the doorway of the tower'); the server data has the torch's use at the four towers."
+			"note": "All Along the Watchtowers (5098, the Horde's Scholomance key): as 5097. Source: the game's quest text ('Using the Beacon Torch, mark each tower in Andorhal; you will need to stand in the doorway of the tower'); the server data has the torch's use at the four towers. The game credits each mark as a kill of the tower (npcs 10902 to 10905), so the use-item-on-mob kind lets the Codex word each one as a use of the torch (#4346)."
 		},
 		"4241": {
 			"steps": [
