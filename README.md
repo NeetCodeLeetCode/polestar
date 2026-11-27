@@ -152,6 +152,9 @@ Good to know:
   Guide & quests, Minimap button turns it off).
 - `/polestar skip` moves on for good; `/polestar next` and `prev` only look
   ahead or back.
+- If the guide is behind your quests, pick **Sync with my quests** in the guide
+  menu or type `/polestar sync`. Polestar places the guide again from your
+  quest log. Your own check-offs and skips stay, and the window offers an Undo.
 - **Updating:** the CurseForge app and the Polestar Client update Polestar for
   you. By hand, delete the old Polestar folders, then unzip the new release
   the same way. Coming from 0.2.x, also delete the `Polestar_Guides_deDE`,
