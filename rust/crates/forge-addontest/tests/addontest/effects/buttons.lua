@@ -53,6 +53,10 @@ return {
 		["buttons.rareSize"] = function() return rare:GetWidth() end,
 		["buttons.bagSize"] = function() return bag:GetWidth() end,
 		["qol.itemButton"] = function() return item:IsShown() and true or false end,
+		-- The guide paused (as in a dungeon): the buttons go with it unless the switch is off (QoL/Buttons.lua, Buttons.Shown).
+		["qol.hideButtonsWithGuide"] = { prepare = function() Polestar.SetPaused(true) end,
+			probe = function() return item:IsShown() and true or false end,
+			cleanup = function() Polestar.SetPaused(false) end },
 		-- The target button, or beside its list the Polestar mark in its slot.
 		["qol.targetButton"] = function() return (target:IsShown() or B.anchor:IsShown()) and true or false end,
 		-- The single button instead of the list.
