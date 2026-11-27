@@ -150,6 +150,13 @@ ns.RegisterCommand("sync", function()
 	if line then ns.Print(line) end
 end, L["Place the current guide again from your quest log"])
 
+-- Recalibrate (Engine.Recalibrate): the arrow chooses its target again from scratch.
+ns.RegisterCommand("recalibrate", function()
+	if not needGuide() then return end
+	local line = Engine.Recalibrate()
+	if line then ns.Print(line) end
+end, L["Make the arrow choose its target again from where you stand"])
+
 ns.RegisterCommand("guide", function(rest)
 	local id = rest and rest:match("^%s*(%S+)")
 	if not id then
