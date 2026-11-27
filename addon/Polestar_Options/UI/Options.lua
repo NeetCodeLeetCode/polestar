@@ -316,7 +316,7 @@ local BUILTIN = {
 					disabled = function() return not (ns.Get("behavior.whileHere") and ns.Get("behavior.whileHereTurnins")) end },
 			} },
 		-- 0.4.4's arrow that takes a nearby objective by itself (Engine Own.hereAutoAim): off by default.
-		{ kind = "toggle", key = "behavior.whileHereAim", label = L["Arrow takes nearby objectives"], new = "0.4.4",
+		{ kind = "toggle", key = "behavior.whileHereAim", label = L["Take nearby objectives"], new = "0.4.4",
 			help = L["The arrow leads to a suggested objective by itself when it costs only a few seconds off the way the guide leads, as if you had clicked it. The guide stays as it is, and the arrow goes back to it when the objective is done, you walk off or you dismiss the suggestion."],
 			search = "arrow, detour, nearby objective, automatic, auto aim, on the way, while you're here, lead me",
 			disabled = function() return not ns.Get("behavior.whileHere") end,

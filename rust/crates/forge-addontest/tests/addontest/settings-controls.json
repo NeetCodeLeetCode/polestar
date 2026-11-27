@@ -2403,7 +2403,7 @@
   {
    "id": "behavior.whileHereAim",
    "kind": "toggle",
-   "label": "Arrow takes nearby objectives",
+   "label": "Take nearby objectives",
    "at": [
     "Guide > Window > Dynamic Questing"
    ]

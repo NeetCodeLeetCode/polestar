@@ -1,5 +1,5 @@
 -- env: world
--- The Guide page's Dynamic Questing > Arrow takes nearby objectives (Core/Engine.lua, Own.hereAutoAim), as
+-- The Guide page's Dynamic Questing > Take nearby objectives (Core/Engine.lua, Own.hereAutoAim), as
 -- engine-live-detour.rs plays it: the arrow leading west to the wolves 600 yd off, and a suggested objective (the
 -- kobold vermin of quest 7, in the log) 140 yd south of the player, a detour of about 28 s. Each probe walks in from
 -- far off (a line shown stays a little past its limit) and reads the step the arrow leads to.
