@@ -277,7 +277,8 @@ fn a_quest_that_opens_a_follow_up_is_worth_more() {
 	let setup = format!("{ON}\n{WIDE}\n{XP}; XP[7] = 5");
 	let plain = run(&g, &setup, r#"emit(follow(300))"#);
 	assert_eq!(plain[0][0], json!("1:1 2:1"));
-	let chain = r#"Polestar.QuestDB = setmetatable({ IsLoaded = function() return true end, FollowUps = function(q) return q == 7 and { 8 } or nil end }, { __index = function() return function() end end })"#;
+	let chain =
+		r#"Polestar.QuestDB = setmetatable({ IsLoaded = function() return true end, FollowUps = function(q) return q == 7 and { 8 } or nil end }, { __index = function() return function() end end })"#;
 	let chained = run(&g, &format!("{setup}\n{chain}\nflush()"), r#"emit(follow(300))"#);
 	assert_eq!(chained[0][0], json!("1:1 2:1 1:1"));
 }
