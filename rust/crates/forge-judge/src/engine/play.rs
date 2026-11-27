@@ -629,3 +629,55 @@ impl<'a> Sim<'a> {
 		self.evaluate(); // SetGuide of the open guide: evaluate()
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::engine::{Groups, WorldData};
+
+	const NORTH: &str = r#"{ "npc": 1, "map": 1429, "x": 50, "y": 12, "f": "e", "faction": "A" }"#;
+	const SOUTH: &str = r#"{ "npc": 2, "map": 1429, "x": 50, "y": 32, "f": "e", "faction": "A" }"#;
+
+	/// The merchant the view of the vendor step names: the player stands at y 20 (North is nearer, 8 points of y
+	/// against 12) and the guide goes on to y `ahead`, if it does.
+	fn picked(kind: &str, candidates: &[&str], ahead: Option<u32>) -> Option<u32> {
+		let after = ahead.map_or(String::new(), |y| format!(r#", {{ "goals": [{{ "t": "goto", "map": 1429, "x": 50, "y": {y}, "f": "e" }}] }}"#));
+		let json = format!(
+			r#"{{ "id": "t/pick", "steps": [
+			{{ "goals": [{{ "t": "goto", "map": 1429, "x": 50, "y": 20, "f": "e" }}] }},
+			{{ "goals": [{{ {kind}, "candidates": [{}] }}] }}{after}
+		] }}"#,
+			candidates.join(", ")
+		);
+		let guides = [Guide::read(&forge_guide::js::parse_json(&json).unwrap())];
+		let mut data = WorldData::default();
+		data.frames.era.insert("1429".into(), forge_core::Bounds { c: 0, left: Some(1535.417), right: Some(-1935.417), top: Some(-7939.583), bottom: Some(-10254.166) });
+		let mut w = crate::engine::world::World::new(&data.frames, "Human", "WARRIOR", "Alliance", 10.0);
+		w.map = Some(1429);
+		w.x = 50.0;
+		w.y = 20.0;
+		let mut sim = Sim::new(&guides, w, &data, Groups::Skip);
+		sim.login(0);
+		sim.advance(0.6);
+		assert_eq!(sim.current, Some(2), "the player stands at the first goto");
+		sim.view(2)[0].npc
+	}
+
+	const KINDS: [&str; 4] = [r#""t": "vendor""#, r#""t": "buy", "item": 2901"#, r#""t": "sethome", "location": "Goldshire""#, r#""t": "train", "skill": "Mining""#];
+
+	#[test]
+	fn the_candidate_on_the_guide_s_way_wins_over_a_nearer_one() {
+		for kind in KINDS {
+			assert_eq!(picked(kind, &[NORTH, SOUTH], Some(90)), Some(2), "{kind}, the way goes south");
+			assert_eq!(picked(kind, &[NORTH, SOUTH], Some(2)), Some(1), "{kind}, the way goes north");
+			assert_eq!(picked(kind, &[SOUTH, NORTH], Some(90)), Some(2), "{kind}, the other order");
+			assert_eq!(picked(kind, &[SOUTH, NORTH], None), Some(1), "{kind}, no route ahead: the nearest");
+		}
+	}
+
+	#[test]
+	fn two_on_the_way_keep_the_nearer() {
+		let near = r#"{ "npc": 3, "map": 1429, "x": 50, "y": 26, "f": "e", "faction": "A" }"#;
+		assert_eq!(picked(KINDS[0], &[SOUTH, near], Some(90)), Some(3));
+	}
+}

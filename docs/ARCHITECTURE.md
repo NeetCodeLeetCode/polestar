@@ -1886,7 +1886,13 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   player, so the step's town wins wherever the step comes up (#1357). Only Polestar's own packs rank by that zone (an id
   reserved for Polestar): Guides' `Own.trainZones` lists a community pack's or an imported guide's `train class` goals
   in `Guides.AnyTrainer` as their steps come in, since those can't know the player's race, and they go to the nearest
-  trainer. The goal keeps its zone as written (a shared string carries it, #1364). It re-picks on step start, zone change and landing, never per
+  trainer. The goal keeps its zone as written (a shared string carries it, #1364). A `vendor`, `buy`, `sethome` or `train` goal then goes to the
+  candidate of its best tier with the least detour on the guide's route (`Own.routeFirst`), the pick that the
+  training banner makes (below): a nearer candidate off the way loses, a candidate within 15 seconds of a nearer
+  one loses to it, and a goal with no route ahead keeps the nearest. The route is the one the banner reads
+  (`Own.routePoints`: the first open place of each of the next 8 applicable steps). A goal that the route reads
+  picks without it (`Own.routing`) and keeps no pick. The reminder's own pseudo goal (`byPlace`) ranks by place
+  alone, as `Nav/Nearby.lua` lists it. The `forge-judge` replay has the same rule (`route_first`). It re-picks on step start, zone change and landing, never per
   frame. The goal view then carries the chosen `npc`, `npcName`, `map`, `x`, `y`,
   `f`, plus `alternatives = n`; `Polestar.Engine.CycleCandidate(stepIndex, goalIndex)`
   moves to the next-best one. Profession `train` goals are done when the

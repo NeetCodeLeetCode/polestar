@@ -15,6 +15,9 @@ const PLACE_SECONDS: f64 = 10.0;
 const DIE_RADIUS: f64 = 40.0;
 const UNMEASURED: f64 = 1e9;
 const PLANNED: usize = 8;
+const ROUTE_STEPS: usize = 8;
+const ROUTE_TIE: f64 = 15.0;
+const ROUTE_PLANNED: usize = 4;
 const RUN_SPEED: f64 = 7.0;
 const CROSS_CONTINENT: f64 = 3600.0;
 const TOO_HIGH: f64 = 3.0;
@@ -24,6 +27,9 @@ const SPOT_FORGET: f64 = 300.0;
 
 /// A goal of a guide: (guide index, step, goal), 1-based like the Lua.
 pub(crate) type GRef = (usize, usize, usize);
+
+/// A place on a map: (map, x, y, Era frame).
+type Pt = (u32, f64, f64, bool);
 
 /// Why a quest's goals read as skipped (unavailableFor's mark).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -186,6 +192,8 @@ pub(crate) struct Sim<'a> {
 	earlier: FxHashMap<usize, FxHashSet<u32>>,
 	context_gen: u64,
 	picks: FxHashMap<GRef, Pick>,
+	/// Own.routing: a route is being read, so the goals it reads pick without it and keep no pick.
+	routing: bool,
 	spot_chosen: FxHashMap<GRef, usize>,
 	spot_seen: FxHashMap<(GRef, usize), f64>,
 	asking: FxHashSet<usize>,
@@ -409,6 +417,7 @@ impl<'a> Sim<'a> {
 			earlier: FxHashMap::default(),
 			context_gen: 0,
 			picks: FxHashMap::default(),
+			routing: false,
 			spot_chosen: FxHashMap::default(),
 			spot_seen: FxHashMap::default(),
 			asking: FxHashSet::default(),
@@ -1757,6 +1766,113 @@ impl<'a> Sim<'a> {
 		(need / (rate * kpm) * 60.0, gap)
 	}
 
+	/// ns.DirectTravelCost: a straight run in seconds, an hour across continents, none for a point that
+	/// cannot be placed. (A replay has no route planner, so ns.TravelCost is this too.)
+	fn direct_cost(&self, a: Pt, b: Pt) -> Option<f64> {
+		let (c1, x1, y1) = self.w.map_to_world(a.0, a.1, a.2, a.3)?;
+		let (c2, x2, y2) = self.w.map_to_world(b.0, b.1, b.2, b.3)?;
+		Some(if c1 != c2 { CROSS_CONTINENT } else { ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt() / RUN_SPEED })
+	}
+
+	/// Own.routePoints: the first open goal with coordinates of each of the next ROUTE_STEPS applicable
+	/// steps from the live step (the step on screen when none is live), in order.
+	fn route_points(&mut self) -> Vec<Pt> {
+		let mut pts = Vec::new();
+		let Some(from) = self.computed.or(self.current) else { return pts };
+		let gd = self.gd();
+		let mut seen = 0;
+		for s in from..=gd.steps.len() {
+			if !self.step_applies(s) {
+				continue;
+			}
+			for g in 1..=gd.step(s).goals.len() {
+				let goal = gd.goal(s, g);
+				if let (Some(m), Some(x), Some(y)) = (goal.map, goal.x, goal.y) {
+					if self.goal_applies(s, g) && !self.goal_done(s, g).done {
+						pts.push((m, x, y, goal.era));
+						break;
+					}
+				}
+			}
+			seen += 1;
+			if seen >= ROUTE_STEPS {
+				break;
+			}
+		}
+		pts
+	}
+
+	/// Own.routeDetour: the seconds added to walking from `here` through `pts` by a stop at `t`, on the
+	/// cheapest leg to leave and rejoin the route at, and that leg's end (1-based).
+	fn route_detour(&self, here: Pt, pts: &[Pt], t: Pt) -> Option<(f64, usize)> {
+		let mut best: Option<(f64, usize)> = None;
+		let mut a = here;
+		for (i, &b) in pts.iter().enumerate() {
+			if let (Some(ab), Some(at), Some(tb)) = (self.direct_cost(a, b), self.direct_cost(a, t), self.direct_cost(t, b)) {
+				let d = at + tb - ab;
+				if best.is_none_or(|(x, _)| d < x) {
+					best = Some((d, i + 1));
+				}
+			}
+			a = b;
+		}
+		best
+	}
+
+	/// Own.routePick: the candidate of the best tier among `list` (nearest first) that costs the least
+	/// detour on the guide's route; one within ROUTE_TIE of a nearer one loses to it. None when the guide has
+	/// no route ahead. The route planner's price of a leg is the straight one in a replay, so a leg costs its
+	/// detour.
+	fn route_pick(&mut self, list: &[usize], tier: &[f64], cands: &[Cand]) -> Option<usize> {
+		let (hm, hx, hy) = self.w.player_map_position()?;
+		let here = (hm, hx, hy, false);
+		let pts = self.route_points();
+		if pts.is_empty() {
+			return None;
+		}
+		let first = *list.first()?;
+		let mut rough: Vec<(usize, f64, usize)> = Vec::new(); // (candidate, detour, list order)
+		for (order, &i) in list.iter().enumerate() {
+			let c = &cands[i];
+			if tier[i] != tier[first] {
+				continue;
+			}
+			if let (Some(m), Some(x), Some(y)) = (c.map, c.x, c.y) {
+				if let Some((d, _)) = self.route_detour(here, &pts, (m, x, y, c.era)) {
+					rough.push((i, d, order));
+				}
+			}
+		}
+		if rough.len() == 1 {
+			return Some(rough[0].0);
+		}
+		rough.sort_by(|a, b| a.1.partial_cmp(&b.1).filter(|o| o.is_ne()).unwrap_or(a.2.cmp(&b.2)));
+		rough.truncate(ROUTE_PLANNED);
+		rough.sort_by_key(|r| r.2);
+		let mut best: Option<(usize, f64)> = None;
+		for &(i, d, _) in &rough {
+			if best.is_none_or(|(_, cost)| d < cost - ROUTE_TIE) {
+				best = Some((i, d));
+			}
+		}
+		best.map(|b| b.0)
+	}
+
+	/// Own.routeFirst: `list` (pickFor's ranking) with its route pick moved to the front. Not while a route
+	/// pick is under way.
+	fn route_first(&mut self, list: &mut Vec<usize>, tier: &[f64], cands: &[Cand]) {
+		if list.len() < 2 || self.routing {
+			return;
+		}
+		self.routing = true;
+		let pick = self.route_pick(list, tier, cands);
+		self.routing = false;
+		if let Some(c) = pick.filter(|&c| Some(&c) != list.first()) {
+			list.retain(|&i| i != c);
+			list.insert(0, c);
+		}
+	}
+
 	/// pickFor: the candidates the character may use, nearest first (straight line; Nav's travel
 	/// estimate is the direct one in a replay).
 	fn pick_for(&mut self, gr: GRef) -> (Vec<usize>, usize) {
@@ -1824,9 +1940,15 @@ impl<'a> Sim<'a> {
 				}
 			}
 			list.sort_by(|&a, &b| better(a, b, &cost));
+			// A vendor, an inn or a trainer on the guide's way beats a nearer one off it.
+			if matches!(goal.t, T::Vendor | T::Buy | T::Sethome | T::Train) {
+				self.route_first(&mut list, &tier, cands);
+			}
 		}
 		let i = if list.is_empty() { 0 } else { 1 };
-		self.picks.insert(gr, Pick { gen: self.context_gen, list: list.clone(), i });
+		if !self.routing {
+			self.picks.insert(gr, Pick { gen: self.context_gen, list: list.clone(), i });
+		}
 		(list, i)
 	}
 
