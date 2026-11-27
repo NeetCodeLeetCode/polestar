@@ -97,3 +97,23 @@ test("the journal-quests table: Agamaggan's Blood is on Razorfen Downs' page (#2
 	assert.equal(row.instance, 'razorfen-downs');
 	assert.equal(row.source.kind, 'questie', "QuestieDB's quest text names the dungeon");
 });
+
+// #4279: Gnome Improvement (Alliance) and Nogg's Ring Redo (Horde) follow Return of the Ring, which is picked up inside
+// Gnomeregan, but they are given and handed in outside it and ask for a Silver Bar and a Moss Agate, so no rule put them
+// on the dungeon's page and its hand-in guide left them out. The cited rows keep them there, each on a Forever quest
+// whose prerequisite is the Return of the Ring of its side.
+test("the journal-quests table: Gnome Improvement and Nogg's Ring Redo are on Gnomeregan's page (#4279)", () => {
+	const rows = loadJournalQuests();
+	const quests = fs.readFileSync(path.join(__dirname, '..', 'forever-db', 'data', 'quest_prereq.jsonl'), 'utf8')
+		.split('\n')
+		.filter(Boolean)
+		.map((line) => JSON.parse(line));
+	for (const [quest, ring] of [[2948, 2947], [2950, 2949]]) {
+		const row = rows.find((r) => r.quest === quest);
+		assert.ok(row, `a row for quest ${quest}`);
+		assert.equal(row.instance, 'gnomeregan');
+		assert.ok(isWebCitation(row.source), `${quest}: a citation of Forever's quest data`);
+		assert.deepEqual([row.source.kind, row.source.id], ['quest', quest]);
+		assert.ok(quests.some((p) => p.quest === quest && p.pre === ring), `${quest} follows Return of the Ring (${ring}) in Forever's quest data`);
+	}
+});
