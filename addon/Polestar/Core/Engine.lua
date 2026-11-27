@@ -18027,15 +18027,14 @@ function Engine.PlacementLine()
 		or string.format(L["Placed you: %s."], list)
 end
 
--- Takes back what placement marked in the loaded guide: the check-offs and
--- skips it added, the quests it listed as skipped earlier and the quests the
--- catch-up left out. The player's own marks stay. The guide is then
--- unplaced, also after a reload, until Engine.RedoPlacement. True if there
--- was a placement to undo.
-function Engine.UndoPlacement()
-	local rec = guide and ns.CharState().placementUndo[guide.id]
+-- Takes back what placement marked in guide `id`: the check-offs and skips it
+-- added, the quests it listed as skipped earlier and the quests the catch-up
+-- left out. The player's own marks stay. True if a placement was recorded.
+-- The record itself is the caller's to keep or clear.
+function Own.takeBackPlacement(id)
+	local rec = ns.CharState().placementUndo[id]
 	if not (rec and rec.put) then return false end
-	local st, id = ns.CharState(), guide.id
+	local st = ns.CharState()
 	for f, marks in pairs(rec.put) do
 		local mine = type(st[f]) == "table" and st[f][id]
 		if type(mine) == "table" then
@@ -18045,8 +18044,25 @@ function Engine.UndoPlacement()
 			if not next(mine) then st[f][id] = nil end
 		end
 	end
-	st.placementUndo[id] = { undone = true }
 	Own.leftOut[id], Own.leftOutWhy[id], Own.passedNow[id], Own.passedWhole[id], Own.placedThrough[id] = nil, nil, nil, nil, nil
+	return true
+end
+
+-- Works the loaded guide out again from the quest log, as when it was just
+-- opened (placement runs again in the evaluation).
+function Own.placeAgain()
+	refreshPlayer()
+	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
+	evaluate()
+end
+
+-- Takes back what placement marked in the loaded guide (Own.takeBackPlacement).
+-- The guide is then unplaced, also after a reload, until Engine.RedoPlacement.
+-- True if there was a placement to undo.
+function Engine.UndoPlacement()
+	if not (guide and Own.takeBackPlacement(guide.id)) then return false end
+	local id = guide.id
+	ns.CharState().placementUndo[id] = { undone = true }
 	refreshPlayer()
 	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, nil
 	evaluate()
@@ -18059,10 +18075,26 @@ end
 function Engine.RedoPlacement()
 	if not (guide and Own.placementUndone(guide.id)) then return false end
 	ns.CharState().placementUndo[guide.id] = nil
-	refreshPlayer()
-	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
-	evaluate()
+	Own.placeAgain()
 	return true
+end
+
+-- Sync with my quests: places the loaded guide again from the quest log as it
+-- is now, in the middle of the guide as well, and also after an undo. What an
+-- earlier placement marked is taken back and worked out afresh (a new record,
+-- so the Undo takes back this placement only); the player's own ticks and
+-- skips stay. Returns nil with no guide, else a line to tell the player and
+-- whether placement marked anything (then the guide window says it, with its
+-- Undo, as after any placement).
+function Engine.SyncPlacement()
+	if not guide then return nil end
+	local id = guide.id
+	Own.takeBackPlacement(id)
+	ns.CharState().placementUndo[id] = nil
+	Own.placeAgain()
+	if not logReady then return L["The quest log has not loaded yet. The guide places you when it has."], false end
+	local line = Engine.PlacementLine()
+	return line or L["Already in sync: your quests need no change in this guide."], line ~= nil
 end
 
 -- How much of guide g's route the character has done (#86): the share of its

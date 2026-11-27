@@ -83,6 +83,12 @@ ns.UI.GuideFrame.Part(function(GF)
 		if not inHeader("Skip") then
 			add({ text = L["Skip this step"], icon = "skip", disabled = not (hasGuide and E.GetStepIndex and E.GetStepIndex()), onClick = function() GF.SkipStep() end })
 		end
+		-- Place the guide again from the quest log as it is now (Engine.SyncPlacement). With something marked, the window's banner says what; otherwise the chat does.
+		add({ text = L["Sync with my quests"], icon = "flag", disabled = not (hasGuide and E.SyncPlacement), tip = L["Places this guide again from your quest log: it marks what your quests show you passed and moves you to the work you have started. Your own check-offs and skips stay. The window offers an Undo."],
+			onClick = function()
+				local line, marked = E.SyncPlacement()
+				if line and not marked then ns.Print(line) end
+			end })
 		group()
 		-- Pin the shown step's quests in the log as along the way, or unpin them (#644).
 		for _, it in ipairs(GF.PinItems(GF.View())) do add(it) end

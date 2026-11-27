@@ -143,6 +143,13 @@ ns.RegisterCommand("placement", function(rest)
 	end
 end, L["Show what placement marked in this guide; undo or redo it"])
 
+-- Sync with my quests (Engine.SyncPlacement): the guide is placed again from the quest log as it is now.
+ns.RegisterCommand("sync", function()
+	if not needGuide() then return end
+	local line = Engine.SyncPlacement()
+	if line then ns.Print(line) end
+end, L["Place the current guide again from your quest log"])
+
 ns.RegisterCommand("guide", function(rest)
 	local id = rest and rest:match("^%s*(%S+)")
 	if not id then

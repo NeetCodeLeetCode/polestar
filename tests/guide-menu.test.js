@@ -84,7 +84,7 @@ test('rows the header shows as buttons stay out of the menu, and come back when 
 	const groups = groupsOf(off.items);
 	const where = (t) => groups.findIndex((g) => g.includes(t));
 	assert.equal(where('Lookup'), 0, 'Lookup sits with Choose guide');
-	assert.equal(where('Skip this step'), 1, 'the step on its own');
+	assert.equal(where('Skip this step'), 1, 'the step with its Sync row, on their own');
 	assert.equal(where('Report a problem'), where('Settings'));
 });
 
@@ -184,4 +184,36 @@ test('a short menu shows every row past 12, with no filter box', () => {
 		local filter = rawget(PolestarMenu, "Filter")
 		emit({ shown = shown, filter = filter ~= nil and filter:IsShown() })`);
 	assert.deepEqual(out, { shown: 16, filter: false });
+});
+
+test('Sync with my quests: a row in the step group, and a click syncs the guide and says so in the chat when nothing was marked', () => {
+	const [out] = run(`uistub.setGuide(uistub.elwynn, 3)\n${MENU}
+		local E = Polestar.Engine
+		local function row()
+			local got
+			local show = W.ShowMenu
+			W.ShowMenu = function(_, items) got = items end
+			GF.OpenMenu(GF.menuButton)
+			W.ShowMenu = show
+			for _, it in ipairs(got) do if it.text == "Sync with my quests" then return it end end
+		end
+		local calls, said = 0, {}
+		-- The stub engine has no placement: the row asks for it.
+		E.SyncPlacement = function() calls = calls + 1; return "Already in sync.", false end
+		local shown = menu().items
+		local r = row()
+		Polestar.Print = function(m) said[#said + 1] = m end
+		r.onClick()
+		local first = { calls = calls, said = said[1] or false }
+		E.SyncPlacement = function() calls = calls + 1; return "Placed you at step 4: 2 steps marked done.", true end
+		r.onClick()
+		emit({ shown = shown, enabled = r.disabled ~= true, tip = r.tip ~= nil, first = first, calls = calls, saidAfterMarked = #said })`);
+	const groups = groupsOf(out.shown);
+	const where = (t) => groups.findIndex((g) => g.includes(t));
+	assert.equal(where('Sync with my quests'), 1, 'it sits in the step group, after the guide and tabs');
+	assert.equal(out.enabled, true);
+	assert.equal(out.tip, true, 'the row says what it does');
+	assert.deepEqual(out.first, { calls: 1, said: 'Already in sync.' }, 'nothing marked: the chat says so');
+	assert.equal(out.calls, 2);
+	assert.equal(out.saidAfterMarked, 1, 'something marked: the window\'s banner says it, not the chat');
 });

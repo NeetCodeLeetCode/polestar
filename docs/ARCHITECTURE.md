@@ -3720,6 +3720,17 @@ holds at its opening, see "Not yet available"):
   reload or in a new tab, until `Engine.RedoPlacement`
   (`/polestar placement redo`, the banner's "Place me again").
   `Engine.ResetProgress` clears the record.
+- Sync with my quests. `Engine.SyncPlacement` places the loaded guide again
+  from the quest log as it is now, at any time: the guide menu's "Sync with my
+  quests" and `/polestar sync`. It takes back the keys the record holds
+  (`Own.takeBackPlacement`, shared with `Engine.UndoPlacement`), clears the
+  record, then runs `place` again (`Own.placeAgain`, shared with
+  `Engine.RedoPlacement`). The player's own ticks and skips stay, and an
+  undone guide is placed too. The new record is what the banner's Undo takes
+  back. It returns a line for the player and whether placement marked
+  anything: the banner says it when it did, the chat when it did not.
+  Skips that no one placed (`Own.latchWhen` stores the steps whose `when`
+  does not hold for the character) stay as they are.
 - Before the start (with no start: before the last quest progress), a step
   passes when every open goal is an accept the character cannot take yet
   (level, prerequisite; marked unavailable for the session, so it comes back

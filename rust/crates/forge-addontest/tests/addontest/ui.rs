@@ -1854,7 +1854,8 @@ fn the_header_menu_picker_new_tab_compact_transparent_lock_destructive_items_ask
 		uistub.setGuide(uistub.elwynn, 3)
 		GF.menuButton:Click()
 		local items, bar = {}, {}
-		for _, r in ipairs(PolestarMenu.rows) do if r:IsShown() then items[#items + 1] = r.Text:GetText() end end
+		-- The Sync row has its own test (engine-placement-sync.rs); this one is about the rows around it.
+		for _, r in ipairs(PolestarMenu.rows) do if r:IsShown() and r.Text:GetText() ~= "Sync with my quests" then items[#items + 1] = r.Text:GetText() end end
 		for _, b in ipairs(PolestarMenu.Bar.buttons) do if b:IsShown() then bar[#bar + 1] = b.psEntry.text end end
 		GF.menuButton:Click()
 		barPick("Lock window")
@@ -1893,7 +1894,7 @@ fn the_menu_offers_the_quest_log_cleanup_with_its_count_and_shows_it_off_when_th
 		local function items()
 			GF.menuButton:Click()
 			local out = {}
-			for _, r in ipairs(PolestarMenu.rows) do if r:IsShown() then out[#out + 1] = r.Text:GetText() end end
+			for _, r in ipairs(PolestarMenu.rows) do if r:IsShown() and r.Text:GetText() ~= "Sync with my quests" then out[#out + 1] = r.Text:GetText() end end
 			GF.menuButton:Click()
 			return out
 		end
