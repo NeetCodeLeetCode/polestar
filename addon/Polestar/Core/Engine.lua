@@ -490,14 +490,15 @@ end
 -- before The Hunt Continues), as Own.starterTaken pairs them, the goals
 -- at each NPC (`at[npc]`) or object (`at[-object]`), the same entries,
 -- `needs[p]`: the quests whose accept here cannot be taken without p (p is
--- in its `preAll`, or its one `pre`), and `escorts[q]`: the escorts the
--- player chooses to do or skip (Own.escortChoice, #3439).
+-- in its `preAll`, or its one `pre`), `works[q]`: the quest's objective goals
+-- ({ s, g, goal }, in guide order: Own.pinGoals), and `escorts[q]`: the
+-- escorts the player chooses to do or skip (Own.escortChoice, #3439).
 local NONE = {}
 Own.layoutCache = setmetatable({}, { __mode = "k" })
 local function layoutOf(g)
 	local l = Own.layoutCache[g.steps]
 	if l then return l end
-	l = { stepOf = {}, accepts = {}, turnins = {}, abandons = {}, starters = {}, at = {}, needs = {} }
+	l = { stepOf = {}, accepts = {}, turnins = {}, abandons = {}, works = {}, starters = {}, at = {}, needs = {} }
 	local firstCollect = {}
 	for s, step in ipairs(g.steps) do
 		for gi, goal in ipairs(step.goals) do
@@ -510,6 +511,14 @@ local function layoutOf(g)
 					by[goal.quest] = list
 				end
 				list[#list + 1] = { s = s, key = s .. ":" .. gi, step = step, goal = goal }
+			end
+			if goal.quest and goal.oi and Own.PIN_VERBS[goal.t] then
+				local list = l.works[goal.quest]
+				if not list then
+					list = {}
+					l.works[goal.quest] = list
+				end
+				list[#list + 1] = { s, gi, goal }
 			end
 			if goal.t == "accept" and goal.quest then
 				local pre, all = type(goal.pre) == "table" and goal.pre or NONE, type(goal.preAll) == "table" and goal.preAll or NONE
@@ -7149,15 +7158,15 @@ function Own.dealsWith(grp, goals, q)
 	return false
 end
 
--- The arrow's place for a turn-in of quest q that is not ready while along
--- steps hold its work (#853, #862): the nearest of those goals with a place
--- (Own.fieldDistance; the first where nothing is measurable), as if the
--- player had chosen it (Engine.AimAlong). Nil when none has one.
-function Own.alongAim(q)
+-- The arrow's place for the nearest of `entries` that has one: { step, goal
+-- index[, goal] } as Own.alongWork and Own.pinGoals list them, as if the
+-- player had chosen it (Engine.AimAlong). The nearest by Own.fieldDistance;
+-- the first where nothing is measurable. Nil when none has a place.
+function Own.nearestAim(entries)
 	local c, px, py = Compat().GetPlayerWorldPosition()
 	local best, bestD
-	for _, e in ipairs(Own.alongWork(q)) do
-		local goal = guide.steps[e[1]].goals[e[2]]
+	for _, e in ipairs(entries) do
+		local goal = e[3] or guide.steps[e[1]].goals[e[2]]
 		local wp = waypointOf(e[2], goal, nil, e[1])
 		if wp then
 			local d = c and Own.fieldDistance(goal, c, px, py)
@@ -7165,6 +7174,26 @@ function Own.alongAim(q)
 		end
 	end
 	return best
+end
+
+-- The arrow's place for a turn-in of quest q that is not ready while along
+-- steps hold its work (#853, #862): the nearest of those goals with a place
+-- (Own.nearestAim). Nil when none has one.
+function Own.alongAim(q)
+	return Own.nearestAim(Own.alongWork(q))
+end
+
+-- The arrow's place for a turn-in of quest q that is not ready while a line
+-- of its quest-log entry is open (#3381): the nearest open line's goal with a
+-- place (Own.nearestAim of Own.pinGoals), wherever the guide has it: a step
+-- the player skipped, an optional goal, a later step than the hand-in, or
+-- none at all (then built from the quest database). The turn-in waits for the
+-- game to count the quest ready. Nil when the quest is not in the log, is
+-- ready, or no open line has a place.
+function Own.objectiveAim(q)
+	local C = Compat()
+	if not (q and C.IsOnQuest(q)) or C.IsQuestReadyForTurnIn(q) then return nil end
+	return Own.nearestAim(Own.pinGoals(q))
 end
 
 -- The arrow's place for a turn-in of quest q that is not ready while an update
@@ -7250,8 +7279,9 @@ end
 -- guide of the other faction (Engine.OtherFaction, #2462: its towns are the
 -- enemy's). An along goal the player
 -- chose (Engine.AimAlong) leads while it is listed and open; so does, before
--- a turn-in that is not ready, its quest's work in along steps (Own.alongAim)
--- or the work an update left behind the player (Own.behindAim);
+-- a turn-in that is not ready, its quest's work in along steps (Own.alongAim),
+-- the work an update left behind the player (Own.behindAim) or else any open
+-- line of the quest's log entry (Own.objectiveAim, #3381);
 -- so does the "While you're here" line the player clicked (Engine.AimWhileHere),
 -- while it shows. On the live step, a quest that left the log and waits for
 -- the player's answer leads back to its giver (Own.lostAim), whose accept the
@@ -7287,7 +7317,8 @@ local function findWaypoint()
 	if not grp then return current == computed and Own.failedAim(current) or nil end
 	local cg, header = Own.currentGoal(current, groups, focus)
 	if cg and goals[cg].t == "turnin" then
-		local wp = Own.alongAim(goals[cg].quest) or Own.behindAim(goals[cg].quest)
+		local q = goals[cg].quest
+		local wp = Own.alongAim(q) or Own.behindAim(q) or Own.objectiveAim(q)
 		if wp then return wp end
 	end
 	local wp = cg and waypointOf(cg, goals[cg])
@@ -17152,15 +17183,14 @@ function Own.pinGoals(q)
 	local objs = Compat().GetQuestObjectives(q)
 	local out, have = {}, {}
 	if not objs then return out end
-	for s, step in ipairs(guide.steps) do
-		for g, goal in ipairs(step.goals) do
-			if goal.quest == q and goal.oi and Own.PIN_VERBS[goal.t] and goalApplies(goal) then
-				local line = Own.objectiveLine(goal, objs)
-				local o = objs[line]
-				if o and not o.finished and not have[line] and not goalDone(s, g, goal) then
-					have[line] = true
-					out[#out + 1] = { s, g, goal, line }
-				end
+	for _, e in ipairs(layoutOf(guide).works[q] or NONE) do
+		local s, g, goal = e[1], e[2], e[3]
+		if goalApplies(goal) then
+			local line = Own.objectiveLine(goal, objs)
+			local o = objs[line]
+			if o and not o.finished and not have[line] and not goalDone(s, g, goal) then
+				have[line] = true
+				out[#out + 1] = { s, g, goal, line }
 			end
 		end
 	end
