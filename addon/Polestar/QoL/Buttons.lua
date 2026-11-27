@@ -84,7 +84,10 @@
 --     with qol.pingTarget (off by default), never as a raid member without
 --     lead or assist (Buttons.QuestPingLine).
 --
--- All of them go with the guide window (ns.GuideShown); the step key stays.
+-- All of them go with the guide window (ns.GuideShown) unless "Hide the
+-- buttons with the guide" (qol.hideButtonsWithGuide) is off, which keeps them
+-- while the window is closed or waits out a dungeon (Buttons.Shown); hiding
+-- Polestar always takes them. The step key stays.
 -- In the game's Quick Keybind Mode they take a key under the cursor, and the
 -- hidden ones show dimmed in their slots until it closes (QoL/QuickBind.lua).
 --
@@ -163,6 +166,14 @@ end
 
 local Buttons = {}
 QoL.Buttons = Buttons
+
+-- Whether the buttons show now: with the guide window, or whatever the
+-- window does when qol.hideButtonsWithGuide is off (the window closed, its
+-- instance wait, the dungeon pause). Hiding Polestar takes them either way.
+function Buttons.Shown()
+	if ns.Hidden() then return false end
+	return ns.GuideShown() or not ns.Get("qol.hideButtonsWithGuide")
+end
 
 -- The holder's spot (it sits where the quest item button does) and each
 -- kind's slot above (+) or below (-) it in a column; in a row, left (+) or
@@ -3139,7 +3150,7 @@ do
 	applyTarget = function(b)
 		-- The Polestar mark is not secure: hidden with Polestar (or the guide) at
 		-- once, in a fight too; the rows follow once it ends.
-		if TL.anchor and not ns.GuideShown() then TL.anchor:Hide() end
+		if TL.anchor and not Buttons.Shown() then TL.anchor:Hide() end
 		QoL.Secure("target", function()
 			local list = target.list
 			-- The list keeps its order: only the single button cycles.
@@ -3319,7 +3330,7 @@ end
 
 local function applyBag(b)
 	local Space = QoL.Space
-	local low = ns.GuideShown() and Space and Space.Low()
+	local low = Buttons.Shown() and Space and Space.Low()
 	local s = low and Space.Spare()
 	local j = low and not s and Space.Junk()
 	b.spare, b.junk = s or nil, j or nil
@@ -3628,21 +3639,21 @@ local function refresh()
 	-- One view of the current step for all three buttons.
 	local view, raw = QoL.CurrentStep()
 	farWatch = nil
-	local guideShown = ns.GuideShown()
+	local shown = Buttons.Shown()
 	-- The step's item first; with none, a quest starter from the bags, glowing.
 	-- Never on a taxi: the client refuses item spells there (#1583).
-	local itemOn = QoL.On("itemButton") and guideShown and not onTaxi()
+	local itemOn = QoL.On("itemButton") and shown and not onTaxi()
 	local item = itemOn and view and Buttons.ChooseQuestItem(view, raw) or nil
 	local QL = QoL.QuestLoot
 	local loot = itemOn and not item and QL and QL.Current() or nil
 	applyItem(itemButton, item or loot, loot)
-	applyItem(hearthButton, QoL.On("hearthButton") and guideShown and view and Buttons.WantsHearth(view) and Client.HEARTHSTONE or nil)
+	applyItem(hearthButton, QoL.On("hearthButton") and shown and view and Buttons.WantsHearth(view) and Client.HEARTHSTONE or nil)
 
 	-- The list shows qol.targetRows names; the single button, the step key
 	-- and the interact stage keep MAX_NAMES.
 	local cap = not simple() and ns.Get("qol.targetRows") or MAX_NAMES
 	local list, verbs, ids, marks
-	if QoL.On("targetButton") and guideShown and view then list, verbs, ids, marks = Buttons.TargetNames(view, raw, true, true, cap, true) else list = {} end
+	if QoL.On("targetButton") and shown and view then list, verbs, ids, marks = Buttons.TargetNames(view, raw, true, true, cap, true) else list = {} end
 	-- The mark settings and who may mark (Buttons.MarkRight) are part of both
 	-- signatures, so changing one re-applies.
 	local mark = QoL.On("markTarget") and (markSetting("mob") .. " " .. markSetting("npc") .. " " .. tostring(Buttons.MarkRight()) .. "\n") or ""
@@ -3690,7 +3701,7 @@ local function refresh()
 
 	-- Not tied to the step: a rare can turn up on any of them.
 	local R = ns.Rares
-	local rares = QoL.On("rareButton") and guideShown and R and R.Nearby and R.Nearby() or {}
+	local rares = QoL.On("rareButton") and shown and R and R.Nearby and R.Nearby() or {}
 	local raresSig = concat(rares, "\n")
 	if raresSig ~= rare.sig then
 		rare.sig = raresSig
@@ -3933,6 +3944,7 @@ ns.On("SETTING_CHANGED", function(path)
 		or path == "behavior.whileHereStepKey" or path == "behavior" or path == "" then refreshSoon() end
 end)
 ns.On("GUIDE_SHOWN", function() if itemButton then refreshSoon() end end) -- an instance hide (ns.GuideShown)
+ns.On("POLESTAR_HIDDEN", function() if itemButton then refreshSoon() end end) -- hiding Polestar takes them even with the guide's hide off
 
 -- Back to the default spots (options button): the set's and the bag button's.
 function Buttons.ResetPositions()

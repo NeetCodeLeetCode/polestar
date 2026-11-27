@@ -694,7 +694,9 @@ How each surface hides:
 - Not under the layer: the secure buttons (the quest item, target, step,
   Hearthstone, bag, travel, rare and name-target buttons; a protected child would
   make the layer protected in a fight): each follows `GuideShown()` or
-  `ArrowHidden()` and changes out of combat, as before, so in a fight the
+  `ArrowHidden()` (the action buttons follow `Buttons.Shown()`: `GuideShown()`,
+  or with `qol.hideButtonsWithGuide` off anything but hiding Polestar) and
+  changes out of combat, as before, so in a fight the
   rest goes at once and they go when it ends (back the same way). The arrow
   (`Nav/Arrow.lua`, `shouldShow`: `not ArrowHidden()`), which "Keep the arrow
   when hidden" may keep, and the ways back: the minimap button (dimmed:
@@ -863,7 +865,8 @@ What it takes, and how:
   the Engine otherwise (`Engine.AimGoal`, `Engine.AimWhileHere`), sets a
   picked point instead (`Nav/Layers.lua`).
 - The guide window and what goes with it: `GuideShown()` is false (the action
-  buttons, the party panel, the rare and transport alerts), and
+  buttons unless `qol.hideButtonsWithGuide` is off, the party panel, the rare
+  and transport alerts), and
   `GF.ApplyVisibility` hides the window, outside `GF.RulesHide()`, so the
   floating launcher stays as a way back.
 - The window's nudges: the while-here toast and chime (`UI/WhileHere.lua`).
@@ -7840,7 +7843,7 @@ the mark stands in for the hidden button: it joins the mode (`QuickBind.Add`
 with `command = "CLICK PolestarTargetButton:LeftButton"`), so hovering it
 binds the button's key; with no names it shows dimmed with the binding's name
 on its `Label` until the window closes. Hiding Polestar hides the rows and the
-mark with the button (`ns.GuideShown`): the mark at once, the rows out of
+mark with the button (`Buttons.Shown`): the mark at once, the rows out of
 combat. A row's model takes the id the list holds for its name (the arrow's
 goal's, when two goals share the name). The button joins only with
 `qol.targetSimple`. The rows do not join: their clicks are not bindings. A

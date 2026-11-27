@@ -328,6 +328,7 @@
 	"qol.guideHighlight",
 	"qol.guideNameTarget",
 	"qol.hearthButton",
+	"qol.hideButtonsWithGuide",
 	"qol.hideErrors",
 	"qol.hideQuestTracker",
 	"qol.instanceTrack",
