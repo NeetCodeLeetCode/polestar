@@ -2572,11 +2572,22 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   goes `aim` is cleared and the arrow returns to the guide. `Own.hereAimAt` is that
   step, shared by the click and the automatic take. With `behavior.whileHereAim`, each poll
   (`Own.hereTick`, outside combat and with no timed quest running) offers the shown
-  "work" lines to `Own.hereAutoAim`, but only while no goal is aimed: the line whose detour
-  (`Own.hereWorkDetour`, the price of a hand-in, `Own.hereDetour`: the seconds of extra
-  walking to reach its place and go on to where the waypoint leads) is the smallest, at most
-  `behavior.whileHereAimSeconds` (5 to 60, 15 by default, Options' "Objectives: how far out
-  of your way"), takes the arrow. A pick-up, a hand-in, a flight master and the sell, repair
+  "work" lines to `Own.hereAutoAim`, but only while no goal is aimed. `ns.StopPlanner`
+  (`Core/StopPlanner.lua`, plain geometry) tries every order of every subset of the lines
+  (at most 4) and scores a path by its value for each minute of extra walking. The extra
+  walking is the price of a hand-in (`Own.hereDetour`): the path from the player through the
+  lines and on to where the waypoint leads, less the straight way, at most
+  `behavior.whileHereAimSeconds` (5 to 60, 15 by default, Options' "Take nearby objectives"
+  and "Objectives: how far out of your way"). The value of a line (`Own.hereValue`) is its
+  quest's XP (`Own.questXp`) as percent of a level, split over the quest's unfinished lines.
+  The last line of a quest counts 1.25 times as much if the quest has a follow-up
+  (`QuestDB.FollowUps`), and 1.5 times as much with 3 quest slots or fewer free
+  (`Own.logRoom`), as its hand-in frees one. The arrow takes the first line of the best path
+  when it scores `Own.AIM_TRIGGER` (3) or the path is on the way (`Own.AIM_FREE`, 3 s).
+  It holds the line against the heading the guide had when it took it (the arrow itself leads
+  to the line), goes back to the guide below `Own.AIM_RELEASE` (1.5) or when the guide's step
+  changes (it plans again at once), and gives way to another line only for a path that scores
+  `Own.AIM_MARGIN` (1.3) times as much. A pick-up, a hand-in, a flight master and the sell, repair
   and gathering lines never do. The guide, its steps and its saved progress do not change; a
   click, a row the player chose or a dismissed line (`Own.hereDismiss`) wins over it. Messages:
   `WHILE_HERE_CHANGED` (a line came, its count changed, it went) and
