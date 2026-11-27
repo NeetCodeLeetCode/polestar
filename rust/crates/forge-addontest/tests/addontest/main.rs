@@ -186,6 +186,8 @@ mod engine_repeatable;
 mod engine_reset;
 #[path = "engine-review.rs"]
 mod engine_review;
+#[path = "engine-route-picks.rs"]
+mod engine_route_picks;
 #[path = "engine-routes.rs"]
 mod engine_routes;
 #[path = "engine-sections.rs"]

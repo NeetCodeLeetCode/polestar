@@ -3214,8 +3214,14 @@ local picks = setmetatable({}, { __mode = "k" }) -- goal -> { list = { candidate
 -- `train class` goal and the training reminder alike: the starting areas'
 -- trainers teach to 6, and Goldshire's training step sent a level 12 Hunter
 -- standing in Northshire to Tordrin Sternblade (#2477).
+-- A vendor, a buy, an inn (`sethome nearest`) or a trainer goal then goes to the
+-- candidate of the best tier that costs the least detour on the guide's route
+-- (Own.routeFirst, as the training banner does): a nearer one off the way loses.
+-- The class-training reminder's pseudo goal stays by place (`byPlace`: ranked by the
+-- player's place alone, what Nearby lists).
 Own.UNMEASURED = 1e9
 Own.PLANNED = 8
+Own.ROUTE_PICKED = { vendor = true, buy = true, sethome = true, train = true }
 local RUN_SPEED = 7 -- yards per second, unmounted
 Own.HOME_NEAR = 100
 Own.OUTGROWN = 8 -- tiers an outgrown class trainer drops (after continent, zone level and the step's zone)
@@ -3339,9 +3345,11 @@ local function pickFor(goal)
 			if s then cost[c] = s end
 		end
 		table.sort(list, better)
+		-- A vendor, an inn or a trainer on the guide's way beats a nearer one off it.
+		if Own.ROUTE_PICKED[goal.t] and not goal.byPlace then Own.routeFirst(list, tier) end
 	end
 	p = { list = list, i = #list > 0 and 1 or 0, gen = contextGen, tier = tier }
-	picks[goal] = p
+	if not Own.routing then picks[goal] = p end -- a pick made while a route is read is not the goal's own
 	return p
 end
 
@@ -10219,7 +10227,7 @@ end
 ---------------------------------------------------------------------------
 
 -- A pseudo goal, so pickFor ranks them as a `train class` goal (its outgrown trainers last, #2477).
-local classTrainers = { t = "train", class = true, candidates = {} }
+local classTrainers = { t = "train", class = true, byPlace = true, candidates = {} }
 local trainerClasses = {} -- npc -> { [classFile] = true }, every class trainer
 Own.TRAIN_LOOKAHEAD = 4 -- applicable steps, from the current one
 
@@ -10303,15 +10311,15 @@ function Own.routeDetour(here, pts, t, cost)
 	return best, at_
 end
 
--- The trainer of the best pickFor tier (continent, zone level) among `list`
--- (nearest first) that costs the least detour on the guide's next steps; a
--- trainer within ROUTE_TIE of a nearer one loses to it. Straight lines pick
--- the Own.ROUTE_PLANNED likeliest, then the route planner prices each one's
--- best leg, so a trainer on the far side of a mountain does not win by
--- being close as the crow flies. Nil when the guide has no route ahead of
--- the player to measure against.
+-- The candidate of the best pickFor tier (continent, zone level) among `list`
+-- (nearest first) that costs the least detour on the guide's next steps; one
+-- within ROUTE_TIE of a nearer one loses to it. Straight lines pick the
+-- Own.ROUTE_PLANNED likeliest, then the route planner prices each one's best
+-- leg, so a trainer on the far side of a mountain does not win by being close
+-- as the crow flies. Nil when the guide has no route ahead of the player to
+-- measure against.
 Own.ROUTE_PLANNED = 4
-function Own.trainerOnRoute(list, tier)
+function Own.routePick(list, tier)
 	local here = ns.PlayerPoint()
 	local pts = here and Own.routePoints()
 	if not pts or #pts == 0 then return nil end
@@ -10322,6 +10330,8 @@ function Own.trainerOnRoute(list, tier)
 			if d then rough[#rough + 1] = { c = c, d = d, leg = leg, order = order } end
 		end
 	end
+	-- One choice in the tier: nothing to price.
+	if #rough == 1 then return rough[1].c end
 	table.sort(rough, function(x, y)
 		if x.d ~= y.d then return x.d < y.d end
 		return x.order < y.order
@@ -10343,7 +10353,26 @@ function Own.trainerOnRoute(list, tier)
 	return best
 end
 
--- trainerOnRoute prices up to ROUTE_PLANNED trainers with three route plans
+-- `list` (pickFor's ranking) with its route pick moved to the front. Not while
+-- a route pick is under way: a goal that the route reads asks for its own pick
+-- without the route.
+function Own.routeFirst(list, tier)
+	if #list < 2 or Own.routing then return end
+	Own.routing = true
+	local ok, c = pcall(Own.routePick, list, tier)
+	Own.routing = false
+	if not ok then error(c, 0) end
+	if not c or c == list[1] then return end
+	for k = 2, #list do
+		if list[k] == c then
+			table.remove(list, k)
+			break
+		end
+	end
+	table.insert(list, 1, c)
+end
+
+-- routePick prices up to ROUTE_PLANNED trainers with three route plans
 -- each (15 ms on a 0.4.1 Thousand Needles step), and the guide window's
 -- training banner asks for it on every repaint: after every kill and loot
 -- while training is due, and after every zone change (its relayout, #3451:
@@ -10374,7 +10403,7 @@ function Own.trainerOnRouteKept(list, tier)
 	if Compat().IsOnTaxi() and k.last ~= nil then return k.last or nil end
 	local hit = map and k.byMap[map]
 	if hit == nil then
-		hit = Own.trainerOnRoute(list, tier) or false
+		hit = Own.routePick(list, tier) or false
 		if map then k.byMap[map] = hit end
 	end
 	k.last = hit
