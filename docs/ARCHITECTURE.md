@@ -3731,6 +3731,17 @@ holds at its opening, see "Not yet available"):
   anything: the banner says it when it did, the chat when it did not.
   Skips that no one placed (`Own.latchWhen` stores the steps whose `when`
   does not hold for the character) stay as they are.
+- Placement at the other entry points. A guide is placed when `placing` is
+  set: a login, a reload, a new tab, a guide loaded over a tab, a reset. A tab
+  that was open while the player played on elsewhere, and an open guide in a
+  new zone, were not. `Own.placeIfMoved` runs `Own.placeAgain` (as Redo and
+  Sync do) when a quest event came since the guide was last placed
+  (`Own.placedStamp[guideId]` against `Own.logStamp`). `Engine.SelectTab` calls it for the tab brought to the front,
+  and `ZONE_CHANGED_NEW_AREA` for the loaded guide. It uses the same `place`, so
+  it marks only what a reload marks, keeps the player's own marks, stays quiet
+  when nothing is marked and respects an undone placement. A sub-zone change
+  (`ZONE_CHANGED`) does not place. Jumping to the zone the player stands in
+  (#1249) is a different change and is not part of it.
 - Before the start (with no start: before the last quest progress), a step
   passes when every open goal is an accept the character cannot take yet
   (level, prerequisite; marked unavailable for the session, so it comes back
