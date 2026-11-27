@@ -11249,6 +11249,7 @@ local function evaluateLoaded(active)
 	local wasPlacing = placing
 	if placing and (logReady or GetTime() >= placing) then placing = nil end
 	local placed = wasPlacing and not placing
+	if placed then Own.placedStamp[guide.id] = Own.logStamp end
 	-- A quest the route had passed left the log: the live step stays and the
 	-- window asks whether to go back for it (Own.holdLost), never silently.
 	if not (gate or wasPlacing) and computed and wasComputed and computed < wasComputed and Own.holdLost(computed, wasComputed) then
@@ -11663,7 +11664,7 @@ function Engine.SelectTab(index)
 	persist()
 	tabsDirty = true
 	announceActive()
-	evaluate()
+	if not Own.placeIfMoved() then evaluate() end
 end
 
 -- Closing the active tab activates its right neighbour (else the left one);
@@ -18046,6 +18047,7 @@ Own.PLACED_FIELDS = { "manual", "skipped", "when", "earlier" }
 -- Guides whose placement just wrote something (guideId -> true), until the
 -- window is told (PLACEMENT_RECORDED).
 Own.placedNote = {}
+Own.placedStamp = {} -- guide id -> Own.logStamp when it was last placed
 
 -- A copy of guide `id`'s saved marks that placement writes: { field = { key = value } }.
 function Own.placementMarks(id)
@@ -18197,6 +18199,27 @@ function Engine.SyncPlacement()
 	local line = Engine.PlacementLine()
 	return line or L["Already in sync: your quests need no change in this guide."], line ~= nil
 end
+
+-- The quest log changed since the loaded guide was last placed
+-- (Own.placedStamp: Own.logStamp, bumped by every quest event). A guide still
+-- waiting to be placed (`placing`) is placed in its next evaluation anyway.
+function Own.placementStale()
+	local at = guide and Own.placedStamp[guide.id]
+	return at ~= nil and not placing and logReady and at ~= Own.logStamp
+end
+
+-- Places the loaded guide again (Own.placeAgain, as Redo and Sync do) when the
+-- player played on since it was last placed: a tab brought to the front after
+-- play in another guide (Engine.SelectTab), a new zone (ZONE_CHANGED_NEW_AREA).
+-- The player's own ticks and skips stay and it marks only what place() always
+-- marks, so it is silent when the guide is where the quest log puts the
+-- player. An undone placement stays undone (place). True if it evaluated.
+function Own.placeIfMoved()
+	if not Own.placementStale() then return false end
+	Own.placeAgain()
+	return true
+end
+ns.RegisterEvent("ZONE_CHANGED_NEW_AREA", Own.placeIfMoved)
 
 -- How much of guide g's route the character has done (#86): the share of its
 -- quests (accepts for them, not optional) turned in or in the log, and whether

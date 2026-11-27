@@ -108,6 +108,8 @@ mod engine_dwell;
 mod engine_empty_stop;
 #[path = "engine-enter.rs"]
 mod engine_enter;
+#[path = "engine-entry-points.rs"]
+mod engine_entry_points;
 #[path = "engine-escort-choice.rs"]
 mod engine_escort_choice;
 #[path = "engine-exact-points.rs"]
