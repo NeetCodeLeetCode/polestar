@@ -1289,11 +1289,13 @@ function ns.DragWindow(handle, frame, opts)
 	end)
 end
 
--- The guide window's on/off (ui.shown): the action buttons, the party panel
--- and the rare and transport alerts go with it, the arrow only with
--- nav.hideArrowWithGuide on (Nav.HiddenWithGuide). An instance hide
--- (ui.instance "hide") takes them too; a combat hide leaves them. Hiding
--- Polestar takes them all, and so does the pause (ns.PauseHides).
+-- The guide window's on/off (ui.shown): the action buttons (with
+-- qol.hideButtonsWithGuide on, as it is by default: QoL/Buttons.lua,
+-- Buttons.Shown), the party panel and the rare and transport alerts go with
+-- it, the arrow only with nav.hideArrowWithGuide on (Nav.HiddenWithGuide).
+-- An instance hide (ui.instance "hide") takes them too; a combat hide leaves
+-- them. Hiding Polestar takes them all, and so does the pause
+-- (ns.PauseHides), the buttons again only with their setting on.
 local awayInside = false
 function ns.GuideShown()
 	return not hidden and not ns.PauseHides("window") and ns.GuideWindowOn()

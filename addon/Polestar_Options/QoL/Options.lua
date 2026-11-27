@@ -150,6 +150,9 @@ actionRows[#actionRows + 1] = { kind = "toggle", key = "qol.bagGlow", label = L[
 for _, c in ipairs({
 	{ kind = "toggle", key = "qol.rareButton", label = L["Rare button"],
 		help = L["Shows a button that targets a rare Polestar spotted nearby, until it dies or is out of sight. Bindable."], search = "rare elite, target rare, keybind, hotkey, rare button, show, hide" },
+	{ kind = "toggle", key = "qol.hideButtonsWithGuide", label = L["Hide the buttons with the guide"],
+		help = L["When the guide window is hidden, hide the quest item, target, Hearthstone, rare and bag buttons too. Turn it off to keep them while the window is closed, or while the guide waits out a dungeon."],
+		search = "hide with guide, keep buttons, guide window closed, dungeon, instance, bag button, clean up, target button, action buttons" },
 	C.stepInteract(),
 	-- How they look (size, layout, text, opacity...) is the Buttons page's (QoL/ButtonsOptions.lua).
 	{ kind = "button", icon = "palette", button = L["Open"], label = L["Button look"], new = "0.3.8",

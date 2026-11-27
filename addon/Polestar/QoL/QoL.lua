@@ -50,6 +50,7 @@ local defaults = {
 	guideNameTarget = false, -- opt in: extend navigation clicks to targeting, with shared marking settings
 	rareButton = true,       -- target button for a rare the addon spotted
 	hearthButton = true,     -- Hearthstone button while a hearth goal is active
+	hideButtonsWithGuide = true, -- the buttons and the bag button go when the guide window is hidden or waits out a dungeon; off keeps them (Buttons.Shown)
 	markTarget = true,       -- raid icon on what the target button, step key and objective clicks target
 	pingTarget = false,      -- /ping the mob the target button and step key target (QoL/Buttons.lua)
 	markMob = "8",           -- its icon on mobs (1-8, "cycle"): skull
