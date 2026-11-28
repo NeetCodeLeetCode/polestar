@@ -1858,14 +1858,9 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- item is not in the bags and the quest is neither in the log nor done.
 -- behavior.skipSlow (toggle, off): "Skip slow quests". Own.slowSkipped(q, goal) makes goalApplies false for every goal of a
 -- quest on Core/SlowQuestList.lua (written by `slowquests build` from data/codex/slow-quests.json: rows with 2 or more
--- sources, a review date and a code; a `low-drop` row the forever-db score says is fast is dropped by the build). Never
+-- sources, a review date and a code; the build judges no kill count, drop chance or time). Never
 -- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
 -- done, nor one a quest not slow needs (slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
--- A quest the character outlevels is slow too (Own.slowCode, SlowQuestList.SlowAt(q, level)): the build scores every quest
--- of forever-db at every level (tools/lib/slow-quests.js barRate: its reward at the level-gap share plus the XP of the kills
--- it asks, over the minutes of its work, as a share of that level's XP bar) against the median of the quests a character
--- of that level does, and lists the level a quest first falls under `level.threshold` of it, at `level.fromGap` levels over
--- the quest or more. The walk is not in the data, so the rate is an upper bound.
 -- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
 -- ns.NextStop (Core/NextStop.lua, docs/NEXT-STOP.md): ranks hubs, zones and dungeons by XP for each minute. Plain numbers, no game calls. Its places come from Core/NextStopPlaces.lua; UI/NextStopCard.lua shows the top one (behavior.nextStop, on by default, used only while Fastest XP is on).
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
