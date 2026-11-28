@@ -100,6 +100,8 @@ mod engine_die;
 mod engine_direct;
 #[path = "engine-direct-gated.rs"]
 mod engine_direct_gated;
+#[path = "engine-dungeon-exit.rs"]
+mod engine_dungeon_exit;
 #[path = "engine-dungeon-route.rs"]
 mod engine_dungeon_route;
 #[path = "engine-dwell.rs"]

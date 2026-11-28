@@ -1109,11 +1109,18 @@ function Own.xpLeft(goal)
 end
 
 -- Deathskips (`die` goals) are the player's choice (behavior.deathskips, off
--- by default) and never a Hardcore character's: a death there is the end.
+-- by default), never a Hardcore character's (a death there is the end) and
+-- never above level DEATHSKIP_LEVEL: through level 10 the Spirit Healer's
+-- resurrection brings no sickness (QoL/Death.lua), and Forge writes none past
+-- it (docs/forge/model.md, `deathskipLevel`). Above it the step passes and the
+-- next step's travel takes the player there.
+Own.DEATHSKIP_LEVEL = 10
 function Own.deathskips()
 	if not ns.Get("behavior.deathskips") then return false end
 	local rules = C_GameRules
-	return not (rules and rules.IsHardcoreActive and rules.IsHardcoreActive())
+	if rules and rules.IsHardcoreActive and rules.IsHardcoreActive() then return false end
+	local level = player and player.level or UnitLevel and UnitLevel("player") or 1
+	return level <= Own.DEATHSKIP_LEVEL
 end
 
 -- `when upgrade`: Polestar's gear advice (Gear.IsUpgrade: wearable now and at

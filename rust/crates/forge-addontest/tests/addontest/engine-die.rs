@@ -94,3 +94,18 @@ fn a_die_step_is_passed_unless_the_player_chose_deathskips_and_always_on_a_hardc
 	assert_eq!(out[1], 1, "chosen: the step comes back");
 	assert_eq!(out[2], 2, "a Hardcore character never takes one");
 }
+
+#[test]
+fn a_die_step_is_passed_above_level_10_even_when_chosen() {
+	let out = run(r#"
+		Polestar.Set("behavior.deathskips", true); flush()
+		emit(E.GetStepIndex())
+		stub.world.level = 10; stub.fire("PLAYER_LEVEL_UP", 10); flush()
+		emit(E.GetStepIndex())
+		stub.world.level = 11; stub.fire("PLAYER_LEVEL_UP", 11); flush()
+		emit(E.GetStepIndex())
+	"#);
+	assert_eq!(out[0], 1, "level 5: the deathskip is open");
+	assert_eq!(out[1], 1, "level 10: the last level without resurrection sickness");
+	assert_eq!(out[2], 2, "level 11: the step passes and the next step's travel takes over");
+}
