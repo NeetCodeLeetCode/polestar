@@ -483,7 +483,8 @@ registered commands with their `help` lines (already translated:
 `hide arrow` toggles "Keep the arrow when hidden", see "Hiding Polestar"),
 `next`, `prev` (look at the next/previous step; nothing changes), `skip`
 (skip the step shown, for good), `reset` (clear ticks, latches, skips and
-the saved view for the current guide), `guide <id>`, `status`, `tabs`,
+the saved view for the current guide), `prereq [guide]` (open the guide this one
+follows on from, at the quests it needs), `guide <id>`, `status`, `tabs`,
 `tab <n>`, `close`, `path` (the route choice), `install` and `welcome` (`SHOW_WELCOME`),
 `packs` (Options at Community guides), `gamepad` (Options at Gamepad), `where`, `questlog` (`SHOW_QUEST_ROOM`), `report` (`SHOW_REPORT`),
 `discord` (`SHOW_DISCORD`), `debug`, in Core/Perf.lua `perf` (no argument
@@ -1851,6 +1852,10 @@ Polestar.Engine.AwayStart(id) -> away | nil -- another race's starting zone the 
 Polestar.Engine.GoalDone(stepIndex, goalIndex) -> bool     -- the goal is done (live state, arrival or check-off); Nav/Walk.lua's FollowsGoto asks it of a guide `goto`
 Polestar.Engine.ToggleGoal(stepIndex, goalIndex) -> bool   -- tick any goal but a note done, or clear its check-off
 Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional goal, or bring it back
+-- behavior.rareDrops ("optional" | "chase" | "hide"): the optional item-start accept and the collect of its item
+-- (Own.itemStart). "chase": Own.chased puts the collect among the goals the arrow leads to. "hide": Own.rareHidden
+-- makes Own.goalSkipped true for them and the quest's other optional goals, and goalStatus reads "na", while the
+-- item is not in the bags and the quest is neither in the log nor done.
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")
@@ -2013,8 +2018,18 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   the guide's first third: the guide window's "fresh" banner, an offer with
   no percent and no minutes ("Some of this guide's quests follow on from X.
   Start there for the full set, or carry on here; the guide fills in with
-  nearby quests.", "Open X" opens it in a new tab; taken or dismissed, gone
-  for that guide for the session).
+  nearby quests.", "Open X" calls `Engine.OpenFreshSource(id)`; taken or
+  dismissed, the note is gone for that guide for the session). That call
+  opens `from` in a new tab at the first step where the character can start
+  on the quests they lack of `needs` (#4110, `Own.chainStart`): the first
+  accept or direct hand-in of one of them, or of a quest one of them needs
+  down its prerequisites, that the character can take now, or a hand-in of a
+  quest they hold. A hand-in of a quest they do not hold is no start. The
+  steps before it are skipped as a `skipto` jump skips them (`"jump"`), and
+  Unskip brings one back. A guide already in a tab only gets the focus. With
+  no such step the guide opens at its own start. `/polestar prereq [guide]`
+  does the same for the active guide or the one named, with no 30 percent
+  floor, and says so when there is nothing to open.
 - **Out-levelled guides.** When the player's level exceeds the active guide's
   top (`maxLevel`, or their side's `factionLevels` one: `Guides.Levels`) by
   `Engine.OUTGROWN` (3) or more (`Engine.Outgrown`; a Class guide by
@@ -3967,7 +3982,12 @@ step with quest progress the game shows (`anchorStep`, read with every mark
 gone); the player's own marks and skips before it stay, so a step skipped
 long ago, its quests never taken, does not become the start and send the
 guide back (#1764); `Goto` brings one back. With the quest log not read yet,
-everything is cleared.
+everything is cleared. `Engine.ResetProgress(true)` (Reset everything, `/ps
+reset`, #4111) keeps nothing: it also clears the marks before the last quest
+progress, the saved view (`pins`) and the quests held for the player's
+answer (`lostQuests`), so the guide starts at the first quest the player can
+still take. Reset from here (`/ps resetfrom`) is the call without the
+argument.
 
 Waypoint:
 

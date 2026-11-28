@@ -42,6 +42,7 @@ ns.RegisterDefaults("behavior", {
 	offerClassQuests = true, -- offer a Class guide in a tab when it opens for the character (QoL/ClassQuests.lua)
 	groupQuests = "ask", -- "ask" | "do" | "skip": the answer at a group quest (`when group`) the player has not answered (Own.groupAnswer)
 	dungeons = "skip", -- "skip" | "ask" | "run": "Dungeons in my route", the answer for a dungeon (`when dungeon`) the character has not answered one by one (Own.dungeonAnswer)
+	rareDrops = "optional", -- "optional" | "chase" | "hide": the quests an item starts, optional in the guides (Own.itemStart): leave as written, lead the arrow to the drop, or leave out until the item drops (Own.rareHidden, Own.chased)
 	lostQuests = "ask", -- "ask" | "back" | "skip": a quest the route had passed that leaves the log (abandoned, failed): the window asks, or the guide goes back for it or skips it at once (Own.holdLost)
 	suggestFrom = "guides", -- pack id the suggestions come from (Guides.SuggestSource); ours fill in
 	whileHere = true, -- "While you're here": a quick objective of a later step close by, as one line under the step (Own.hereBuild)
@@ -1869,11 +1870,87 @@ function Own.alongWork(q)
 	return out
 end
 
+-- The shape of the two goals that start a quest from an item: its optional
+-- accept (the item for its giver: no NPC, no object) and the optional collect
+-- of that item (no quest of its own). An optional start is one the guides
+-- mark for a rare drop or a side trip.
+local function itemStarterShape(goal)
+	return goal.optional and goal.item and ((goal.t == "accept" and not goal.npc and not goal.object)
+		or (goal.t == "collect" and not goal.quest)) and true or false
+end
+
+-- The optional item-start accept that goal belongs to: the accept itself, or
+-- the collect of its item in the same step; nil for any other goal. Cached
+-- per goal (guides do not change).
+local itemStarts = setmetatable({}, { __mode = "k" })
+function Own.itemStart(step, goal)
+	local known = itemStarts[goal]
+	if known ~= nil then return known or nil end
+	local found
+	if itemStarterShape(goal) then
+		if goal.t == "accept" then
+			found = goal
+		else
+			for _, other in ipairs(step.goals) do
+				if other.t == "accept" and other.item == goal.item and itemStarterShape(other) then
+					found = other
+					break
+				end
+			end
+		end
+	end
+	itemStarts[goal] = found or false
+	return found
+end
+
+-- behavior.rareDrops: how the guide treats the quests an item starts (Own.itemStart).
+-- "optional" (default): optional goals, as the guides write them. "chase": the arrow
+-- leads to the item's drop spots with the rest of the step (Own.chased); the step
+-- still never waits for it. "hide": the start, its item and the quest's other
+-- optional goals are out of the way (Own.rareHidden) until the item is in the bags.
+local RARE_MODES = { optional = true, chase = true, hide = true }
+local function rareMode()
+	local mode = ns.Get("behavior.rareDrops")
+	return RARE_MODES[mode] and mode or "optional"
+end
+
+-- Whether goal g of step s is an item start the player chose to chase.
+-- Only the collect has a place for the arrow to lead to.
+function Own.chased(s, g)
+	local step = guide.steps[s]
+	local goal = step and step.goals[g]
+	return goal ~= nil and goal.t == "collect" and rareMode() == "chase" and Own.itemStart(step, goal) ~= nil
+end
+
+-- Whether behavior.rareDrops hides goal g of step s: an optional item start,
+-- or an optional goal of the quest it starts (its hand-in), while the quest
+-- is not in the log or done and the item is not in the bags. An item that
+-- dropped brings the start back at once (take the quest, hand it in).
+function Own.rareHidden(s, g)
+	local step = guide.steps[s]
+	local goal = step and step.goals[g]
+	if not (goal and goal.optional) or rareMode() ~= "hide" then return false end
+	local a = Own.itemStart(step, goal)
+	if not a and goal.quest then
+		local first = (layoutOf(guide).accepts[goal.quest] or NONE)[1]
+		a = first and Own.itemStart(first.step, first.goal)
+	end
+	if not a then return false end
+	local C = Compat()
+	return not (C.IsOnQuest(a.quest) or questDone(a.quest) or (C.GetItemCount(a.item) or 0) > 0)
+end
+
 -- An optional goal the player skipped: CharState().skipped[guideId]["s:g"]
 -- (next to the step skips, which use the step number).
-function Own.goalSkipped(s, g)
+function Own.goalDismissed(s, g)
 	local sk = ns.CharState().skipped[guide.id]
 	return sk ~= nil and sk[Own.key(s, g)] and true or false
+end
+
+-- A goal the route leaves alone: one the player skipped, or one the
+-- rare-drop setting hides (Own.rareHidden).
+function Own.goalSkipped(s, g)
+	return Own.goalDismissed(s, g) or Own.rareHidden(s, g)
 end
 
 -- Prerequisites during play. An accept is unavailable before any visit
@@ -5590,6 +5667,9 @@ function Own.catchUpPast(level)
 	return out, why
 end
 
+-- Guide id -> the `placing` that Reset everything began (#4111): the placing it holds for, no other.
+Own.freshPlacing = {}
+
 -- Skipped earlier (#86). The high-water mark (anchorStep with turnedOnly) is
 -- the furthest step the character has done quest work in. The open accepts
 -- before it that the character can take, not grey for them, are passed for
@@ -5777,7 +5857,8 @@ local function place()
 	local added = type(addedAll) == "table" and addedAll[guide.id] or nil
 	local fromTab = logReady and Own.logPlaced[guide.id]
 	local anchor = anchorStep(added, fromTab)
-	local mark = logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
+	-- After Reset everything (#4111) the placing it began starts the guide at the first quest the player can take: nothing is passed as skipped earlier.
+	local mark = Own.freshPlacing[guide.id] ~= placing and logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
 	if fromTab then
 		Own.logPlaced[guide.id], Own.reworkedOrder[guide.id] = nil, nil
 		added = Own.noteMovedBehind(anchor) or added
@@ -6246,7 +6327,7 @@ local function nextApplicable(from)
 end
 
 local function goalStatus(s, g, goal, stepIsCurrent)
-	if not goalApplies(goal) then return "na" end
+	if not goalApplies(goal) or Own.rareHidden(s, g) then return "na" end
 	local done, cur, max, label, kind = goalDone(s, g, goal)
 	if done then return "done", cur, max, label, kind end
 	if unavailableFor(goal) or Own.goalSkipped(s, g) or Own.lostGoal(goal) then return "skipped", cur, max, label, kind end
@@ -6949,7 +7030,7 @@ local function goalView(s, g, goal, stepStatus, group)
 		-- skipped (SkipGoal), status "skipped".
 		tickable = goal.t ~= "note" and status ~= "na",
 		ticked = checked(s, g),
-		dismissed = Own.goalSkipped(s, g) or nil,
+		dismissed = Own.goalDismissed(s, g) or nil,
 		optional = goal.optional and true or false,
 		-- A vendor check-off beside other work: it does not hold the step
 		-- (Own.sideVendor).
@@ -7273,7 +7354,7 @@ function Own.currentGoal(s, groups, focus)
 			and not goalDone(s, g, goal) then
 			if Own.isHeader(step, goal, grp) then
 				header = header or g
-			elseif not goal.optional then
+			elseif not goal.optional or Own.chased(s, g) then
 				first = first or g
 				-- A gather another item's use spends (`spentBy`, #4270) is taken in
 				-- its order, never toured: it may need what a goal before it
@@ -12628,6 +12709,42 @@ function Engine.NextGuide(fromId)
 	return id
 end
 
+-- Where guide g's fresh-start note (Engine.FreshFor) and its link
+-- (Engine.OpenFreshSource) get their facts: g's `fresh` header, the guide it
+-- names for this character, `needs` (up to 8 quests of earlier guides) and
+-- those the character still lacks, `left`: neither done, in the log nor
+-- taken on the way (an accept of a feeder step of g's plan). Only a leveling
+-- guide below its top level, with `from` a guide for this character.
+-- -> fresh header, from guide, needs, left | nil
+function Own.freshSource(g)
+	local f = type(g) == "table" and g.fresh
+	if type(f) ~= "table" or type(f.share) ~= "number" or type(f.from) ~= "string" then return nil end
+	if not (g.category == nil or g.category == "Leveling") then return nil end
+	if not player then refreshPlayer() end
+	local lvl = player.level or 1
+	local _, top = Guides.Levels(g, player.faction)
+	if type(top) == "number" and lvl >= top then return nil end
+	local from = Guides.Get(f.from)
+	if not (from and Guides.GuideMatches(from, player)) then return nil end
+	local onWay = NONE
+	if g.base then
+		onWay = {}
+		for _, step in ipairs(g.steps) do
+			if step.feeder then
+				for _, goal in ipairs(step.goals) do
+					if goal.t == "accept" and goal.quest then onWay[goal.quest] = true end
+				end
+			end
+		end
+	end
+	local C = Compat()
+	local needs, left = type(f.needs) == "table" and f.needs or NONE, {}
+	for _, q in ipairs(needs) do
+		if not (questDone(q) or C.IsOnQuest(q) or onWay[q]) then left[#left + 1] = q end
+	end
+	return f, from, needs, left
+end
+
 -- Fresh start (#1562): a character who opens a leveling guide without the
 -- guides before it misses the quest XP that follows on from them (the
 -- quests Own.feederPlan leaves out, and the hand-ins of quests they take).
@@ -12645,32 +12762,9 @@ end
 -- (whole percent) } | nil. Guides.Suggestions ranks such a guide lower.
 function Engine.FreshFor(g)
 	local FRESH_NOTE = 30
-	local f = type(g) == "table" and g.fresh
-	if type(f) ~= "table" or type(f.share) ~= "number" or type(f.from) ~= "string" then return nil end
-	if not (g.category == nil or g.category == "Leveling") then return nil end
-	if not player then refreshPlayer() end
-	local lvl = player.level or 1
-	local _, top = Guides.Levels(g, player.faction)
-	if type(top) == "number" and lvl >= top then return nil end
-	local from = Guides.Get(f.from)
-	if not (from and Guides.GuideMatches(from, player)) then return nil end
-	-- Taken on the way: the accepts of the feeder steps the guide's plan put in.
-	local onWay = NONE
-	if g.base then
-		onWay = {}
-		for _, step in ipairs(g.steps) do
-			if step.feeder then
-				for _, goal in ipairs(step.goals) do
-					if goal.t == "accept" and goal.quest then onWay[goal.quest] = true end
-				end
-			end
-		end
-	end
-	local C = Compat()
-	local needs, left = type(f.needs) == "table" and f.needs or NONE, {}
-	for _, q in ipairs(needs) do
-		if not (questDone(q) or C.IsOnQuest(q) or onWay[q]) then left[#left + 1] = q end
-	end
+	local f, from, needs, left = Own.freshSource(g)
+	if not f then return nil end
+	local C, lvl = Compat(), player.level or 1
 	local function shareOf(n) return #needs > 0 and f.share * n / #needs or f.share end
 	if math.floor(shareOf(#left) + 0.5) < FRESH_NOTE then return nil end
 	-- Only now the levels: they read `from`'s steps (loaded for this, given back after).
@@ -12696,6 +12790,64 @@ function Engine.FreshStart()
 	if not (guide and computed and logReady) then return nil end
 	if computed > math.max(3, #guide.steps / 3) then return nil end
 	return Engine.FreshFor(Guides.Get(guide.id) or guide)
+end
+
+-- The first step of the loaded guide where the character can start on the
+-- quests of `left` (#4110): the first step with an accept (or a direct
+-- hand-in) of one of them, or of a quest one of them needs down its
+-- prerequisites (Own.needsFrom), that the character can take now (not done,
+-- in the log, skipped, or waiting on a prerequisite), or a hand-in of one
+-- they hold in the log: a hand-in of a quest they do not hold is no start.
+-- nil when no step is.
+function Own.chainStart(left)
+	local open = {}
+	for i, q in ipairs(left) do open[i] = { quest = q } end
+	local want = Own.needsFrom(Own.chainOf(guide).pres, open)
+	for _, goal in ipairs(open) do want[goal.quest] = true end
+	local C = Compat()
+	local sk = skippedFor(guide.id)
+	for s, step in ipairs(guide.steps) do
+		if stepApplies(step) and not (sk and sk[s]) then
+			for _, goal in ipairs(step.goals) do
+				local q = goal.quest
+				if q and want[q] and not goal.optional and goalApplies(goal) and not questDone(q) and not Own.questSkipped(q) then
+					local onQuest = C.IsOnQuest(q)
+					if goal.t == "turnin" and not goal.direct then
+						if onQuest then return s end
+					elseif (goal.t == "accept" or goal.direct) and not onQuest and not missingPre(goal) then
+						return s
+					end
+				end
+			end
+		end
+	end
+	return nil
+end
+
+-- The link of the fresh-start note (#4110): opens the guide guide `id`
+-- follows on from in a new tab, at the first step that starts on the quests
+-- the character lacks of it (Own.chainStart), not at its first step. The
+-- steps before it are skipped as a `skipto` jump skips them ("jump"), each
+-- to be brought back with Unskip. A guide already in a tab is only shown, as
+-- the player left it; nothing to start on: the guide's own start. Nil, and
+-- nothing opened, when the guide follows on from no guide for this character
+-- or the character lacks none of the quests it needs.
+-- -> the tab's index | nil
+function Engine.OpenFreshSource(id)
+	local f, from, _, left = Own.freshSource(id and Guides.Get(id))
+	if not f or #left == 0 then return nil end
+	local opened = tabIndexOf(from.id) == nil
+	local index = Engine.OpenTab(from.id, true)
+	if not (index and opened and guide and guide.id == from.id) then return index end
+	local start = Own.chainStart(left)
+	if start and start > 1 then
+		local sk = skippedFor(guide.id, true)
+		for s = 1, start - 1 do
+			if not sk[s] then sk[s] = "jump" end
+		end
+		evaluate()
+	end
+	return index
 end
 
 -- The choice that offers guide `id` to this character (to change route), or nil.
@@ -19333,11 +19485,9 @@ function Engine.SkipGoal(stepIndex, goalIndex)
 	if not (goal and goal.optional) then return false end
 	local sk = skippedFor(guide.id, true)
 	local on = not sk[stepIndex .. ":" .. goalIndex] or nil
-	local starter = goal.item and ((goal.t == "accept" and not goal.npc and not goal.object) or (goal.t == "collect" and not goal.quest))
+	local starter = itemStarterShape(goal)
 	for g, other in ipairs(step.goals) do
-		local partner = starter and other ~= goal and other.item == goal.item and other.optional
-			and ((other.t == "accept" and not other.npc and not other.object) or (other.t == "collect" and not other.quest))
-			and other.t ~= goal.t
+		local partner = starter and other ~= goal and other.item == goal.item and itemStarterShape(other) and other.t ~= goal.t
 		if g == goalIndex or partner then
 			sk[stepIndex .. ":" .. g] = on
 			if aim == other then aim = nil end
@@ -19534,7 +19684,12 @@ end
 -- comes back from the step list (Engine.Goto opens a skipped step). At that
 -- step and after, everything goes, as before. With the quest log not read
 -- yet, nothing is kept.
-function Engine.ResetProgress()
+--
+-- everything (#4111): nothing is kept, so a step skipped long ago comes back
+-- too and the guide starts at the first quest the player can still take. The
+-- saved view and the quests held for the player's answer (Own.lostHere) go
+-- as well.
+function Engine.ResetProgress(everything)
 	if not guide then return end
 	refreshPlayer()
 	local state = ns.CharState()
@@ -19550,9 +19705,14 @@ function Engine.ResetProgress()
 		if type(state[f]) == "table" then state[f][id] = nil end
 	end
 	Own.goneGen = Own.goneGen + 1
+	if everything then
+		for _, f in ipairs({ "pins", "lostQuests" }) do
+			if type(state[f]) == "table" then state[f][id] = nil end
+		end
+	end
 	-- Keys are a step's number ("skipped", "when", "whenPassed") or "step:goal" ("manual",
-	-- an optional goal's skip).
-	local anchor = logReady and anchorStep(nil) or 0
+	-- an optional goal's skip). Nothing is behind anchor 0.
+	local anchor = not everything and logReady and anchorStep(nil) or 0
 	for field, t in pairs(held) do
 		for k, v in pairs(type(t) == "table" and t or NONE) do
 			local s = type(k) == "number" and k or tonumber(tostring(k):match("^(%d+)"))
@@ -19567,6 +19727,7 @@ function Engine.ResetProgress()
 	state.guideDone[id] = nil
 	Own.endOpen[id], Own.lastOpen[id], Own.leftTold[id] = nil, nil, nil
 	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
+	Own.freshPlacing[id] = everything and placing or nil
 	for _, p in pairs(Own.sectionPlans) do
 		p.memo = {}
 		p.memoGen = nil

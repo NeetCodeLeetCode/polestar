@@ -128,6 +128,8 @@ mod engine_flights;
 mod engine_focus;
 #[path = "engine-fresh.rs"]
 mod engine_fresh;
+#[path = "engine-fresh-chain.rs"]
+mod engine_fresh_chain;
 #[path = "engine-gather-spots.rs"]
 mod engine_gather_spots;
 #[path = "engine-grind.rs"]
@@ -192,6 +194,8 @@ mod engine_placement_sync;
 mod engine_placement_undo;
 #[path = "engine-professions.rs"]
 mod engine_professions;
+#[path = "engine-rare-drops.rs"]
+mod engine_rare_drops;
 #[path = "engine-repeatable.rs"]
 mod engine_repeatable;
 #[path = "engine-reset.rs"]
@@ -351,6 +355,8 @@ mod nav_e2e;
 mod nav_handoff;
 #[path = "nav-journey.rs"]
 mod nav_journey;
+#[path = "nav-liminal-scroll.rs"]
+mod nav_liminal_scroll;
 #[path = "nav-load.rs"]
 mod nav_load;
 #[path = "nav-mapcanvas.rs"]
@@ -534,6 +540,8 @@ mod ui_layers;
 mod ui_layout_card;
 #[path = "ui-left-out.rs"]
 mod ui_left_out;
+#[path = "ui-liminal-card.rs"]
+mod ui_liminal_card;
 #[path = "ui-long-translations.rs"]
 mod ui_long_translations;
 #[path = "ui-look-buttons.rs"]

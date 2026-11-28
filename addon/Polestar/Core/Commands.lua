@@ -111,11 +111,18 @@ ns.RegisterCommand("skip", function()
 	if needGuide() and not Engine.Skip() then ns.Print(L["Nothing to skip: the guide has no step open."]) end
 end, L["Skip the step shown, for good (the window offers the undo)"])
 
+-- Both clear the guide's marks, the first all of them (#4111), the second the ones from the last quest progress on (#1764).
 ns.RegisterCommand("reset", function()
+	if not needGuide() then return end
+	Engine.ResetProgress(true)
+	ns.Print(L["Cleared every tick, skip and saved step for this guide. It starts at the first quest you can take."])
+end, L["Clear ticks and skips for the current guide"])
+
+ns.RegisterCommand("resetfrom", function()
 	if not needGuide() then return end
 	Engine.ResetProgress()
 	ns.Print(L["Cleared ticks, skips and the step you were looking at for this guide."])
-end, L["Clear ticks and skips for the current guide"])
+end, L["Reset from here: clear ticks and skips from your last quest progress on"])
 
 -- What placement marked in the current guide, with its undo (Engine.PlacementReport).
 -- `placement undo` takes it back, `placement redo` places the guide again.
@@ -173,6 +180,26 @@ ns.RegisterCommand("guide", function(rest)
 	Engine.SetGuide(g.id)
 	ns.Print((L["Guide: %s"]):format(g.title))
 end, L["Switch to a guide by id"])
+
+-- The fresh-start note's link as a command (#4110), for when the banner is not on screen.
+ns.RegisterCommand("prereq", function(rest)
+	local id = rest and rest:match("^%s*(%S+)")
+	local g
+	if id then
+		-- Guide ids are lower-case; an exact match still wins.
+		g = ns.Guides.Get(id) or ns.Guides.Get(id:lower())
+		if not g then
+			ns.Print((L["Unknown guide '%s'."]):format(id))
+			return
+		end
+	else
+		if not needGuide() then return end
+		g = Engine.GetGuide()
+	end
+	if not Engine.OpenFreshSource(g.id) then
+		ns.Print((L["Nothing to open: %s follows on from no guide you can play, or you have every quest it needs."]):format(g.title))
+	end
+end, L["Open the guide this one follows on from, at the quests it needs"])
 
 ns.RegisterCommand("status", function()
 	local g = Engine.GetGuide()

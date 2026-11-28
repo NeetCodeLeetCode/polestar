@@ -1429,7 +1429,9 @@ percent), below the guide's top level and with `from` a guide for them, the
 guide window says while the guide's live step is in its first third: "Some
 of this guide's quests follow on from <guide>. Start there for the full set,
 or carry on here; the guide fills in with nearby quests.", with "Open
-<guide>", which opens that guide in a new tab. Taken or dismissed, it
+<guide>", which opens that guide in a new tab at the first step where they
+can start on the quests they lack (`/polestar prereq` does the same), not at
+its first step. Taken or dismissed, it
 is gone for that guide until the next session. "Suggested for you" lists
 such a guide after the others of its zone and travel band.
 
@@ -1979,6 +1981,18 @@ the way. An elite in a Leveling guide belongs here, with the tip
   accept 184 optional                -- Only if you looted a Westfall Deed: right-click it
   kill 299 x8 optional
 ```
+
+A quest an item starts is an `accept` with an `item` and no giver, plus the
+`collect` of that item in the same step. If its drop is rare, mark both
+`optional`. The player's setting `behavior.rareDrops` (Guide, Automation,
+Quests) decides what Polestar does with them:
+
+- `optional` (default): both goals show as written.
+- `chase`: the arrow also leads to the item's spots with the rest of the
+  step. The step still never waits for the drop.
+- `hide`: Polestar leaves out the start, the item and the quest's other
+  optional goals. If the item is in the bags or the quest is in the log, the
+  goals come back.
 
 ### Handing over to our guides
 
