@@ -19,6 +19,8 @@ A lever with `hardcore = "leave"` is not written on a Hardcore character.
 A key that no module registers is passed over.
 `tests/fastest-xp.test.js` names a lever whose key no module registers.
 
+`behavior.routeAdvice` is a lever: the cards of docs/ROUTE-ADVICE.md come on with the mode.
+
 The mode never writes these settings: group quests, dungeons, gathering spots, missable warnings,
 the guide end, the zone choice, class teleports and the Shortest Path Forever hand-off.
 

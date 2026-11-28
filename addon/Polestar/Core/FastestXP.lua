@@ -48,6 +48,7 @@ FX.LEVERS = {
 	{ key = "behavior.skipSlow", value = true, group = "skips", label = L["Skip slow quests"] },
 	{ key = "behavior.rareDrops", value = "hide", group = "skips", label = L["Quests started by a rare drop"],
 		names = { optional = L["Optional"], chase = L["Chase them"], hide = L["Hide them"] } },
+	{ key = "behavior.routeAdvice", value = true, group = "advice", label = L["Route advice"] },
 	{ key = "behavior.deathskips", value = true, group = "deathskips", label = L["Use deathskips"], hardcore = "leave" },
 	{ key = "nav.travel", value = true, group = "travel", label = L["Plan travel routes"] },
 }

@@ -410,6 +410,10 @@ mod new_in_forever;
 mod next_stop;
 #[path = "options-memory.rs"]
 mod options_memory;
+#[path = "route-advice.rs"]
+mod route_advice;
+#[path = "engine-route-advice-reads.rs"]
+mod engine_route_advice_reads;
 #[path = "options-search.rs"]
 mod options_search;
 #[path = "out-of-sight.rs"]
@@ -583,6 +587,8 @@ mod ui_movers;
 mod ui_next_stop_card;
 #[path = "ui-options.rs"]
 mod ui_options;
+#[path = "ui-route-advice-card.rs"]
+mod ui_route_advice_card;
 #[path = "ui-packs.rs"]
 mod ui_packs;
 #[path = "ui-picker.rs"]
