@@ -351,6 +351,8 @@ mod nav_e2e;
 mod nav_handoff;
 #[path = "nav-journey.rs"]
 mod nav_journey;
+#[path = "nav-liminal-scroll.rs"]
+mod nav_liminal_scroll;
 #[path = "nav-load.rs"]
 mod nav_load;
 #[path = "nav-mapcanvas.rs"]
@@ -534,6 +536,8 @@ mod ui_layers;
 mod ui_layout_card;
 #[path = "ui-left-out.rs"]
 mod ui_left_out;
+#[path = "ui-liminal-card.rs"]
+mod ui_liminal_card;
 #[path = "ui-long-translations.rs"]
 mod ui_long_translations;
 #[path = "ui-look-buttons.rs"]
