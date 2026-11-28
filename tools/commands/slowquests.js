@@ -13,7 +13,7 @@ const path = require('node:path');
 const { parseArgs } = require('node:util');
 const { header, reportSync } = require('../lib/generated');
 const { ROOT } = require('../lib/paths');
-const { loadDb, bandMedians, chainScore, isClassMask } = require('../lib/slow-quests');
+const { loadDb, bandMedians, chainScore, isClassMask, levelMedians, slowFromLevels } = require('../lib/slow-quests');
 const { classGuides } = require('./classquests');
 
 const usage = `usage: node tools/polestar.js slowquests build [--list <file>]
@@ -53,6 +53,9 @@ function buildSlowList(list, db, classQuests = new Set()) {
 	const errors = [];
 	const margin = list.margin;
 	if (!(typeof margin === 'number' && margin > 0)) errors.push('margin must be a number over 0');
+	const level = list.level || {};
+	if (!(typeof level.threshold === 'number' && level.threshold > 0 && level.threshold < 1)) errors.push('level.threshold must be a number between 0 and 1');
+	if (!(Number.isInteger(level.fromGap) && level.fromGap >= 1)) errors.push('level.fromGap must be a whole number of levels, 1 or more');
 	const seen = new Map();
 	const claim = (kind, row, i) => {
 		const where = `${kind}[${i}] ${row.name || ''}`.trim();
@@ -93,11 +96,24 @@ function buildSlowList(list, db, classQuests = new Set()) {
 		if (!overruled) (codes[row.code] = codes[row.code] || []).push(...row.quests);
 	}
 	for (const code of Object.keys(codes)) codes[code].sort((a, b) => a - b);
-	return { rows, keep: list.keep || [], codes };
+	// The quests that turn slow as the character outlevels them: from the data alone, never a quest of a row, a
+	// `keep` row or a class quest.
+	const skip = new Set([...classQuests, ...seen.keys()]);
+	const byLevel = slowFromLevels(db, levelMedians(db, classQuests), level.threshold, level.fromGap, skip);
+	return { rows, keep: list.keep || [], codes, byLevel };
+}
+
+// The `quest:level` pairs, in quest order, as chunks of one string.
+function levelChunks(byLevel) {
+	const pairs = [...(byLevel || [])].sort((a, b) => a[0] - b[0]).map(([q, l]) => `${q}:${l}`);
+	if (!pairs.length) return ['\t" "'];
+	const lines = [];
+	for (let i = 0; i < pairs.length; i += 12) lines.push(pairs.slice(i, i + 12).join(' '));
+	return lines.map((l, i) => `\t${JSON.stringify((i === 0 ? ' ' : '') + l + ' ')}${i < lines.length - 1 ? ' ..' : ''}`);
 }
 
 // One string of ids per code, read with string.find (Polestar's core at login has a memory budget).
-function toLua({ codes }) {
+function toLua({ codes, byLevel }) {
 	const chunks = (ids) => {
 		const lines = [];
 		for (let i = 0; i < ids.length; i += 16) lines.push(ids.slice(i, i + 16).join(' '));
@@ -115,7 +131,7 @@ function toLua({ codes }) {
 		'-- Read by Core/Engine.lua (Own.slowSkipped).',
 		'',
 		'local ADDON, ns = ...',
-		'local find = string.find',
+		'local find, match = string.find, string.match',
 		'',
 		'local List = {}',
 		'local codes = {',
@@ -129,6 +145,21 @@ function toLua({ codes }) {
 		'\tfor code, ids in pairs(codes) do',
 		'\t\tif find(ids, key, 1, true) then return code end',
 		'\tend',
+		'\treturn nil',
+		'end',
+		'',
+		'-- Quests that turn slow as the character outlevels them: " quest:level " (the lowest level at which what the',
+		'-- quest pays for its time is far under what a quest of that level pays; tools/lib/slow-quests.js).',
+		'local outlevelled =',
+		...levelChunks(byLevel),
+		'',
+		'-- The code that makes quest `q` slow for a character of `level`: its row (List.Slow), else slow-xp once the',
+		'-- character is at the level the quest turned slow at; nil when it is not slow.',
+		'function List.SlowAt(q, level)',
+		'\tlocal code = List.Slow(q)',
+		'\tif code or type(q) ~= "number" or type(level) ~= "number" then return code end',
+		'\tlocal from = tonumber(match(outlevelled, " " .. q .. ":(%d+) "))',
+		'\tif from and level >= from then return "slow-xp" end',
 		'\treturn nil',
 		'end',
 		'',
