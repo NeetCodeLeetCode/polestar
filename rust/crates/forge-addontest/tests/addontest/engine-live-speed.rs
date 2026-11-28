@@ -64,7 +64,8 @@ impl Rng {
 }
 
 // The six zones: (left, top, right, bottom) in map percent, each 800 by 600 yd.
-pub(crate) const ZONES: [(f64, f64, f64, f64); 6] = [(10.0, 10.0, 36.7, 40.0), (40.0, 10.0, 66.7, 40.0), (70.0, 10.0, 96.7, 40.0), (10.0, 55.0, 36.7, 85.0), (40.0, 55.0, 66.7, 85.0), (70.0, 55.0, 96.7, 85.0)];
+pub(crate) const ZONES: [(f64, f64, f64, f64); 6] =
+	[(10.0, 10.0, 36.7, 40.0), (40.0, 10.0, 66.7, 40.0), (70.0, 10.0, 96.7, 40.0), (10.0, 55.0, 36.7, 85.0), (40.0, 55.0, 66.7, 85.0), (70.0, 55.0, 96.7, 85.0)];
 pub(crate) const QUESTS: usize = 6;
 
 // How the guide orders its six quests.
