@@ -130,6 +130,23 @@ fn when_the_guides_order_is_the_shortest_nothing_changes() {
 	assert_eq!(out, vec![json!(1), json!(["1:1 2:1", 790])]);
 }
 
+// A walk-only step shown first is done on arrival. The arrow must then lead on to the steps still open: the window the
+// reorder built before the arrival must not keep the done step (the arrow went out and stayed out until a level-up).
+#[test]
+fn a_walk_step_shown_first_hands_the_arrow_on_when_it_is_reached() {
+	let camp = r#"{ title = "Camp", goals = { { t = "goto", map = 1429, x = 47.6, y = 55.0 } } },"#;
+	let steps = format!("{}{}{}", kill("Wolves", 33, 299, 47.6, 85.0), camp, kill("Vermin", 7, 6, 47.6, 75.0));
+	let script = r#"
+DONE = {}
+local finish = w.finish
+w.finish = function(q) DONE[#DONE + 1] = q; return finish(q) end
+follow(400)
+emit(DONE)"#;
+	let out = run(&guide(&steps, r#"["1:1"] = 33, ["3:1"] = 7"#), ON, script);
+	// The camp, then the vermin on the way, then the wolves: both quests' work is done.
+	assert_eq!(out, vec![json!([7, 33])]);
+}
+
 #[test]
 fn a_step_the_player_looks_at_is_theirs_and_stays() {
 	let g = guide(&format!("{}{}", kill("Wolves", 33, 299, 47.6, 70.0), kill("Vermin", 7, 6, 47.6, 85.0)), r#"["1:1"] = 33, ["2:1"] = 7"#);
