@@ -32,6 +32,7 @@
 	<Script file="AuctionBuys.lua"/>
 	<Script file="LiminalCard.lua"/>
 	<Script file="NextStopCard.lua"/>
+	<Script file="RouteAdviceCard.lua"/>
 	<Script file="JourneyPanel.lua"/>
 	<Script file="GamepadGuide.lua"/>
 	<Script file="GearPick.lua"/>

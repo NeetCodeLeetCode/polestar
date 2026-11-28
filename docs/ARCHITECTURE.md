@@ -1862,6 +1862,7 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
 -- done, nor one a quest not slow needs (slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
 -- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
+-- ns.RouteAdvice (Core/RouteAdvice.lua, docs/ROUTE-ADVICE.md): judges the quests the player picked up or passed by from route distance alone (Engine.QuestDetour, PickupDetour, AdviceHold, AdviceNeeded). Plain numbers. UI/RouteAdviceCard.lua shows one card (behavior.routeAdvice, off by default, written on by Fastest XP): abandon an off-course or listed quest, take or leave a missed pickup. It never acts by itself.
 -- ns.NextStop (Core/NextStop.lua, docs/NEXT-STOP.md): ranks hubs, zones and dungeons by XP for each minute. Plain numbers, no game calls. Its places come from Core/NextStopPlaces.lua; UI/NextStopCard.lua shows the top one (behavior.nextStop, on by default, used only while Fastest XP is on).
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool

@@ -15,6 +15,7 @@
 	"behavior.nextStop",
 	"behavior.offerClassQuests",
 	"behavior.rareDrops",
+	"behavior.routeAdvice",
 	"behavior.routeChoice",
 	"behavior.skipGrey",
 	"behavior.skipSlow",
