@@ -45,7 +45,7 @@ function ARROW.run(o)
 	local function trace(s)
 		local t = m.trace
 		t[#t + 1] = ("%d %s"):format(now, s)
-		if #t > 60 then table.remove(t, 1) end
+		if #t > (TRACE_CAP or 60) then table.remove(t, 1) end
 	end
 
 	-- What the open guide tells about its quests: objectives for the log, the level and the prerequisites.
@@ -169,6 +169,10 @@ function ARROW.run(o)
 			-- Kills and loot: the work takes time and pays kill XP; the quest's line (or the bags) fill.
 			local n = goal.count or 1
 			secs = WORK[t] * n
+			-- A quest of the slow list pays its price here too: slow respawns and rare drops cost a multiple of the time.
+			local List = Polestar.SlowQuestList
+			local why = q and List and List.Slow(q)
+			if why == "slow-respawn" or why == "low-drop" then secs = secs * (SLOW_FACTOR or 3) end
 			local mobLv = qlvl[q] or w.level
 			local kills = t == "collect" and math.ceil(n / 0.6) or n
 			m.kills = m.kills + kills
@@ -333,6 +337,11 @@ function ARROW.run(o)
 				end
 				before, last = last, key
 				trace("arrow " .. key .. " " .. tostring(wp.kind) .. " q" .. tostring(wp.quest))
+				if o.explain and E.RoutingState then
+					-- Why the engine chose it: the reorder's and the aim's own words (the routing report).
+					local r = E.RoutingState()
+					trace(("   reorder live=%s shown=%s rest=%s: %s | aim: %s | arrow from %s"):format(tostring(r.reorder.live), tostring(r.reorder.shown), tostring(r.reorder.rest), tostring(r.reorder.why), tostring(r.aim.why), tostring(r.arrowFrom)))
+				end
 			end
 			local c, a, b = C.MapToWorld(wp.map, wp.x, wp.y, wp.f)
 			local pc0 = here()
@@ -387,8 +396,9 @@ function ARROW.run(o)
 				end
 			end
 		end
-		-- Progress: XP, a hand-in, a step. Nothing for a long time is stuck.
-		local pk = m.xp .. ":" .. m.handins .. ":" .. tostring(E.GetStepIndex()) .. ":" .. tostring(E.GetGuide() and E.GetGuide().id)
+		-- Progress: XP, a hand-in, a step, or 300 yards walked. Nothing of these for a long time is stuck (a long walk is
+		-- not; an arrow that sends the player back and forth is the reversals count).
+		local pk = m.xp .. ":" .. m.handins .. ":" .. tostring(E.GetStepIndex()) .. ":" .. tostring(E.GetGuide() and E.GetGuide().id) .. ":" .. math.floor(yards / 300)
 		if pk ~= progressKey then progressKey, lastProgress = pk, now end
 		if now - lastProgress > (o.stuckSecs or 900) then
 			local i = E.GetStepIndex()
@@ -425,6 +435,33 @@ function ARROW.run(o)
 				return table.concat(f, " ")
 			end)(), trace = m.trace }
 			break
+		end
+	end
+	-- What the route left out: the steps this character's class owns, and how each ended (done, skipped, still ahead).
+	do
+		local g = E.GetGuide()
+		local cls = tostring(w.className or w.class or ""):upper()
+		m.classSteps = { done = 0, skipped = 0, ahead = 0, skippedTitles = {} }
+		for i, st in ipairs(g and g.steps or {}) do
+			local mine = false
+			for _, c in ipairs(st.only and st.only.classes or {}) do
+				if tostring(c):upper() == cls then mine = true end
+			end
+			if mine then
+				local view = E.GetStepView(i)
+				local done, skipped, open = 0, 0, 0
+				for _, goal in ipairs(view and view.goals or {}) do
+					if goal.status == "done" then done = done + 1 elseif goal.status == "skipped" then skipped = skipped + 1 elseif goal.status ~= "na" then open = open + 1 end
+				end
+				if skipped > 0 and done == 0 then
+					m.classSteps.skipped = m.classSteps.skipped + 1
+					m.classSteps.skippedTitles[#m.classSteps.skippedTitles + 1] = tostring(st.title)
+				elseif open > 0 then
+					m.classSteps.ahead = m.classSteps.ahead + 1
+				else
+					m.classSteps.done = m.classSteps.done + 1
+				end
+			end
 		end
 	end
 	collectgarbage(); collectgarbage()

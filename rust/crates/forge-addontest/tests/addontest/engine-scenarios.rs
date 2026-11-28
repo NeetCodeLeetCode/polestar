@@ -4,9 +4,9 @@
 //! (an accept taken before its prerequisite), and the CPU and memory of the updates. Every scenario is named by
 //! its seed, so a failure is a repro: run the test with `SCENARIO_SEED=<n>`.
 
+use super::engine_live_speed::Rng;
 use forge_addontest::arrowplayer::ARROW_PLAYER;
 use forge_addontest::{emitted, Addon, RunAddon};
-use super::engine_live_speed::Rng;
 use serde_json::Value;
 
 /// One character, one guide, one set of settings and a list of events.
@@ -233,8 +233,20 @@ fn campaign_calm() {
 			ratio.push(xf / xd.max(1.0));
 			eprintln!(
 				"{:<18} seed {seed}: D {:>6.0} xp lv{} {:>5} yd {:>3} hand-ins | F {:>6.0} xp lv{} {:>5} yd {:>3} hand-ins | F/D {:.2} | cpu {:.0}/{:.0} ms | D: {} | F: {}",
-				p.name, xd, num(&p.d, "level"), num(&p.d, "yards"), num(&p.d, "handins"), xf, num(&p.f, "level"), num(&p.f, "yards"), num(&p.f, "handins"), xf / xd.max(1.0),
-				num(&p.d, "cpuMax") * 1000.0, num(&p.f, "cpuMax") * 1000.0, flag(&p.d), flag(&p.f)
+				p.name,
+				xd,
+				num(&p.d, "level"),
+				num(&p.d, "yards"),
+				num(&p.d, "handins"),
+				xf,
+				num(&p.f, "level"),
+				num(&p.f, "yards"),
+				num(&p.f, "handins"),
+				xf / xd.max(1.0),
+				num(&p.d, "cpuMax") * 1000.0,
+				num(&p.f, "cpuMax") * 1000.0,
+				flag(&p.d),
+				flag(&p.f)
 			);
 		}
 	}
@@ -251,9 +263,7 @@ fn probe_one() {
 	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(1800);
 	let kinds: Vec<&str> = std::env::var("SCENARIO_KINDS").ok().map(|v| v.split(',').filter(|k| !k.is_empty()).map(|k| &*Box::leak(k.to_string().into_boxed_str())).collect()).unwrap_or_default();
 	let c = CHARS.iter().find(|c| c.0 == only).expect("SCENARIO_ONLY names a character");
-	let mut s = Scene::new(c.1, c.2, c.3, c.4, c.5);
-	s.seconds = secs;
-	s.events = events(seed, secs, &kinds);
+	let mut s = seeded(c, seed, secs, &kinds);
 	if let Ok(lua) = std::env::var("SCENARIO_CALL") {
 		// SCENARIO_CALL="<seconds>:<Lua body>": run Lua at that second, its prints go to the trace.
 		let (at, body) = lua.split_once(':').expect("SCENARIO_CALL is <seconds>:<Lua>");
@@ -286,11 +296,15 @@ fn probe_one() {
 #[ignore = "probe"]
 fn probe_ablation() {
 	let only = std::env::var("SCENARIO_ONLY").unwrap_or_default();
-	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(5400);
+	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(7200);
+	let seed: u64 = std::env::var("SCENARIO_SEED").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+	let kinds = family_kinds(&std::env::var("SCENARIO_FAMILY").unwrap_or_else(|_| "calm".into()));
 	for c in CHARS.iter().filter(|c| c.0.contains(&only)) {
 		let base = {
 			let mut s = Scene::new(c.1, c.2, c.3, c.4, c.5);
 			s.seconds = secs;
+			s.stop_level = target_level(c.4);
+			s.events = events(seed, secs, &kinds);
 			s
 		};
 		let mut arms: Vec<(String, Scene)> = vec![("defaults".into(), base.clone()), ("mode".into(), base.clone().with(FASTEST))];
@@ -299,9 +313,29 @@ fn probe_ablation() {
 			s.lua = super::engine_live_ablation::without(group);
 			arms.push((format!("mode minus {group}"), s));
 		}
+		for key in ["behavior.skipGrey", "behavior.skipSlow", "behavior.rareDrops"] {
+			let mut s = base.clone();
+			s.lua = format!("Polestar.Set(\"behavior.fastestXp\", true); stub.advance(0.6)\nPolestar.Set(\"{key}\", Polestar.GetDefault(\"{key}\")); stub.advance(0.6)\n");
+			arms.push((format!("mode minus {}", key.trim_start_matches("behavior.")), s));
+		}
+		let mut xp = base.clone().with(FASTEST);
+		xp.lua = "Polestar.Set(\"behavior.stepReorderXp\", true); stub.advance(0.6)\n".into();
+		arms.push(("mode plus XP order".into(), xp));
 		for (name, s) in arms {
 			let m = play(&s);
-			eprintln!("{:<18} {:<20} xp {:>7.0} lv{} yd {:>6.0} hand-ins {:>3.0} kills {:>4.0} grind {:>5.0} xp  {}", c.0, name, num(&m, "xp"), num(&m, "level"), num(&m, "yards"), num(&m, "handins"), num(&m, "kills"), num(&m, "grindXp"), flag(&m));
+			eprintln!(
+				"{:<18} {:<24} {:>5.0}s lv{} xp {:>7.0} yd {:>6.0} hand-ins {:>3.0} kills {:>4.0} grind {:>5.0} xp  {}",
+				c.0,
+				name,
+				num(&m, "seconds"),
+				num(&m, "level"),
+				num(&m, "xp"),
+				num(&m, "yards"),
+				num(&m, "handins"),
+				num(&m, "kills"),
+				num(&m, "grindXp"),
+				flag(&m)
+			);
 		}
 	}
 }
@@ -327,6 +361,21 @@ fn target_level(level: u32) -> u32 {
 	}
 }
 
+/// One character's scenario on a seed: the events of the family, and for the seeds after the first, a start somewhere
+/// else in the zone (seed 1 starts where the guide starts).
+pub(crate) fn seeded(c: &(&'static str, &'static str, &'static str, &'static str, u32, &'static str), seed: u64, secs: u32, kinds: &[&str]) -> Scene {
+	let mut s = Scene::new(c.1, c.2, c.3, c.4, c.5);
+	s.seconds = secs;
+	s.stop_level = target_level(c.4);
+	let mut ev = events(seed, secs, kinds);
+	if seed > 1 {
+		let shift = format!("{{ at = 1, kind = \"shift\", yards = {}, angle = {} }}, ", 100 + seed * 130 % 600, seed as f64 * 1.3);
+		ev = ev.replacen('{', &format!("{{ {shift}"), 1);
+	}
+	s.events = ev;
+	s
+}
+
 /// Every character, `seeds` seeds each, the guide's order against Fastest XP, one JSON line a run in $SCENARIO_OUT.
 /// SCENARIO_FAMILY=calm|life|levels|toggle|chaos, SCENARIO_SEEDS=1-3, SCENARIO_ONLY=<part of a name>, SCENARIO_SECONDS.
 #[test]
@@ -344,22 +393,24 @@ fn campaign() {
 	let kinds = family_kinds(&family);
 	for c in CHARS.iter().filter(|c| only.is_empty() || c.0.contains(&only)) {
 		for seed in lo..=hi {
-			let mut s = Scene::new(c.1, c.2, c.3, c.4, c.5);
-			s.seconds = secs;
-			s.stop_level = target_level(c.4);
-			let mut ev = events(seed, secs, &kinds);
-			if seed > 1 {
-				// Seed 1 starts where the guide starts; the others start somewhere else in the zone.
-				let shift = format!("{{ at = 1, kind = \"shift\", yards = {}, angle = {} }}, ", 100 + seed * 130 % 600, seed as f64 * 1.3);
-				ev = ev.replacen('{', &format!("{{ {shift}"), 1);
-			}
-			s.events = ev;
+			let s = seeded(c, seed, secs, &kinds);
 			let d = play(&s);
 			let f = play(&s.clone().with(FASTEST));
 			let (sd, sf) = (num(&d, "seconds"), num(&f, "seconds"));
 			eprintln!(
 				"{:<18} {family} seed {seed}: D {:>5.0}s lv{} {:>4.0} hand-ins {:>6.0} yd | F {:>5.0}s lv{} {:>4.0} hand-ins {:>6.0} yd | F/D time {:.2} | D: {} | F: {}",
-				c.0, sd, num(&d, "level"), num(&d, "handins"), num(&d, "yards"), sf, num(&f, "level"), num(&f, "handins"), num(&f, "yards"), sf / sd.max(1.0), flag(&d), flag(&f)
+				c.0,
+				sd,
+				num(&d, "level"),
+				num(&d, "handins"),
+				num(&d, "yards"),
+				sf,
+				num(&f, "level"),
+				num(&f, "handins"),
+				num(&f, "yards"),
+				sf / sd.max(1.0),
+				flag(&d),
+				flag(&f)
 			);
 			if let Some(path) = &out {
 				use std::io::Write;
