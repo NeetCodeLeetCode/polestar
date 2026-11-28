@@ -18,7 +18,7 @@ local ok, err = ns.RegisterOptions({
 			search = "next stop, where to go next, next zone, next hub, suggest, go do this dungeon" },
 		{ kind = "toggle", key = "behavior.routeAdvice", label = L["Route advice"], new = "0.4.4",
 			help = L["A card tells you when a quest in your log is far off your route, when you did not pick up a quest on it, or when a quest players skip is in your log. It only advises: Abandon asks the game first, and it never abandons by itself. Fastest XP turns it on."],
-			search = "route advice, off course, abandon quest, missed pickup, slow quest, running back and forth, wasted time" },
+			search = "route advice, off course, abandon quest, missed pickup, running back and forth" },
 		{ kind = "button", wide = true, button = L["Restore"], label = L["Put Fastest XP's settings back"],
 			help = L["Writes its values again into the settings you changed by hand since you turned it on."],
 			disabled = function() return FX.State() ~= "customized" end,
