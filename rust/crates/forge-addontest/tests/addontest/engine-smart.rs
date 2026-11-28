@@ -113,7 +113,8 @@ fn candidates_are_re_picked_on_zone_change_and_landing_not_on_every_move_nav_est
 		"#,
 		true,
 	);
-	assert_eq!(out, json!([3373, 3373, 2798, 5943]));
+	// The class trainer step after it is in Orgrimmar (Own.routePoints counts it): Orgrimmar's First Aid trainer is on the way.
+	assert_eq!(out, json!([5943, 5943, 2798, 5943]));
 }
 
 #[test]
