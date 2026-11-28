@@ -218,3 +218,145 @@ fn the_planner_counts_the_walk_on_to_the_steps_after_the_window() {
 	);
 	assert_eq!(out, vec![json!([1, 2])]);
 }
+
+// Class quests. A Class guide is done in its own order; a leveling guide's class steps (`only` a class) belong to
+// that class alone, a class trainer or a quest chain between two steps is a wall or keeps the order.
+const WARRIOR: &str = r#"w.class, w.className, w.classID = "WARRIOR", "Warrior", 1"#;
+const DRUID: &str = r#"w.class, w.className, w.classID = "DRUID", "Druid", 11"#;
+
+fn class_kill(title: &str, class: &str, quest: u32, x: f64, y: f64) -> String {
+	format!(
+		r#"{{ title = "{title}", only = {{ classes = {{ "{class}" }} }}, goals = {{ {{ t = "kill", target = "{title}", npc = 6, count = 8, quest = {quest}, oi = 1, map = 1429, x = {x}, y = {y} }} }} }},"#
+	)
+}
+
+#[test]
+fn a_class_guide_is_never_reordered() {
+	let steps = format!("{}{}", kill("Wolves", 33, 299, 47.6, 85.0), kill("Vermin", 7, 6, 47.6, 70.0));
+	let g = format!(
+		r#"Polestar.RegisterGuide({{ id = "test/order", pack = "test", title = "Order", category = "Class", classes = {{ "WARRIOR" }}, minLevel = 1, maxLevel = 10, steps = {{ {steps} }} }})
+QUEST = {{ ["1:1"] = 33, ["2:1"] = 7 }}"#
+	);
+	let out = run(&g, &format!("{WARRIOR}\n{ON}"), r#"emit(shown()); emit(follow(300))"#);
+	// The same two steps as the leveling guide that is reordered: here the guide's order stays.
+	assert_eq!(out, vec![json!(1), json!(["1:1 2:1", 1090])]);
+}
+
+#[test]
+fn a_class_step_is_the_players_own_and_moves_only_for_that_class() {
+	let steps = format!("{}{}", kill("Wolves", 33, 299, 47.6, 85.0), class_kill("Vermin", "WARRIOR", 7, 47.6, 70.0));
+	let g = guide(&steps, r#"["1:1"] = 33, ["2:1"] = 7"#);
+	// The Warrior's step is on the way: it is shown first. For a Druid the step is not in the guide at all.
+	let warrior = run(&g, &format!("{WARRIOR}\n{ON}"), r#"emit(shown()); emit(follow(300))"#);
+	assert_eq!(warrior, vec![json!(2), json!(["2:1 1:1", 790])]);
+	let druid = run(&g, &format!("{DRUID}\n{ON}"), r#"emit(shown()); emit(follow(300))"#);
+	assert_eq!(druid, vec![json!(1), json!(["1:1", 790])]);
+}
+
+#[test]
+fn a_class_trainer_between_two_steps_is_a_wall() {
+	let steps = format!(
+		"{}{}{}",
+		kill("Wolves", 33, 299, 47.6, 85.0),
+		r#"{ title = "Train", goals = { { t = "train", class = true, npc = 911, npcName = "Llane Beshere", map = 1429, x = 47.6, y = 60.0 } } },"#,
+		kill("Vermin", 7, 6, 47.6, 70.0)
+	);
+	let g = guide(&steps, r#"["1:1"] = 33, ["3:1"] = 7"#);
+	let out = run(&g, &format!("{WARRIOR}\n{ON}"), r#"emit(shown())"#);
+	assert_eq!(out, vec![json!(1)]);
+}
+
+#[test]
+fn a_chain_keeps_its_order_a_follow_up_waits_for_its_quest_and_an_unrelated_step_may_go_first() {
+	// The Druid's chain: take 6361 far south (step 1), work it (step 2), hand it in (step 3). A follow-up (step 4)
+	// needs 6361 handed in first and sits nearer than anything. The wolves (step 5) are independent and on the way.
+	let steps = format!(
+		"{}{}{}{}{}",
+		r#"{ title = "Take", only = { classes = { "DRUID" } }, goals = { { t = "accept", quest = 6361, title = "The Chain", npc = 3033, map = 1429, x = 47.6, y = 85.0 } } },"#,
+		r#"{ title = "Work", only = { classes = { "DRUID" } }, goals = { { t = "kill", target = "Work", npc = 6, count = 8, quest = 6361, oi = 1, map = 1429, x = 47.6, y = 86.0 } } },"#,
+		r#"{ title = "Hand in", only = { classes = { "DRUID" } }, goals = { { t = "turnin", quest = 6361, title = "The Chain", npc = 3033, map = 1429, x = 47.6, y = 85.0 } } },"#,
+		r#"{ title = "Next", only = { classes = { "DRUID" } }, goals = { { t = "accept", quest = 6362, title = "The Next", pre = { 6361 }, npc = 3034, map = 1429, x = 47.6, y = 50.0 } } },"#,
+		kill("Wolves", 33, 299, 47.6, 70.0)
+	);
+	let g = guide(&steps, r#"["5:1"] = 33"#);
+	let out = run(&g, &format!("{DRUID}\n{ON}"), r#"emit(shown()); at(47.6, 45.1); emit(shown())"#);
+	// The wolves (step 5, on the way south) come first; the chain's steps never go ahead of each other, and the
+	// follow-up (step 4) never goes ahead of the chain it follows.
+	assert_eq!(out[0], json!(5));
+	let seq = run(
+		&g,
+		&format!("{DRUID}\n{ON}"),
+		r#"
+		local seen, ticked = {}, {}
+		for _ = 1, 2500 do
+			local s = shown()
+			if s and seen[#seen] ~= s then seen[#seen + 1] = s end
+			local x = E.GetWaypoint()
+			if not x then break end
+			local dx, dy = (x.x - w.x) * 30, (x.y - w.y) * 20
+			local d = math.sqrt(dx * dx + dy * dy)
+			if d <= 5 then
+				-- At its place the quest's work is done in the game: taken, finished, handed in.
+				local key = x.stepIndex .. ":" .. x.goalIndex
+				if not ticked[key] then
+					ticked[key] = true
+					local at = x.stepIndex
+					if at == 1 then w.onQuest(6361, { { required = 8, fulfilled = 0 } }, "The Chain")
+					elseif at == 2 then w.finish(6361)
+					elseif at == 3 then w.turnIn(6361)
+					elseif at == 4 then w.onQuest(6362, { { required = 1, fulfilled = 0 } }, "The Next")
+					elseif at == 5 then w.finish(33) end
+					stub.fire("QUEST_LOG_UPDATE")
+				end
+				stub.advance(0.6)
+			else
+				local st = math.min(d, 3.5)
+				w.moveTo(1429, w.x + dx / d * st / 30, w.y + dy / d * st / 20)
+				stub.advance(0.5)
+			end
+		end
+		emit(seen)"#,
+	);
+	let seen: Vec<i64> = seq[0].as_array().unwrap().iter().map(|v| v.as_i64().unwrap()).collect();
+	let pos = |s: i64| seen.iter().position(|&x| x == s);
+	assert!(pos(1) < pos(2) && pos(2) < pos(3), "the chain keeps its order: {seen:?}");
+	assert!(pos(3) < pos(4), "the follow-up waits for its quest: {seen:?}");
+	assert_eq!(seen, vec![5, 1, 2, 3, 4], "the wolves on the way first, then the chain, then its follow-up");
+}
+
+#[test]
+fn a_warriors_follow_up_waits_for_the_quest_it_follows_however_near_it_is() {
+	// The follow-up (step 2) is 300 yd away, the wolves it needs done first 800 yd: the way back would be shorter
+	// with the follow-up first, but its accept needs the quest handed in.
+	let steps = format!(
+		"{}{}",
+		class_kill("Wolves", "WARRIOR", 33, 47.6, 85.0),
+		r#"{ title = "Next", only = { classes = { "WARRIOR" } }, goals = { { t = "accept", quest = 1686, title = "The Next", pre = { 33 }, npc = 3034, map = 1429, x = 47.6, y = 60.0 } } },"#
+	);
+	let g = guide(&steps, r#"["1:1"] = 33"#);
+	let out = run(&g, &format!("{WARRIOR}\n{ON}"), r#"emit(shown())"#);
+	assert_eq!(out, vec![json!(1)]);
+}
+
+#[test]
+fn a_second_tab_keeps_its_own_step_and_the_first_keeps_its_reorder() {
+	let other = r#"Polestar.RegisterGuide({ id = "test/other", pack = "test", title = "Other", minLevel = 1, maxLevel = 10, steps = {
+		{ title = "Only", goals = { { t = "kill", target = "Vermin", npc = 6, count = 8, quest = 7, oi = 1, map = 1429, x = 47.6, y = 70.0 } } },
+		{ title = "Second", goals = { { t = "kill", target = "Wolves", npc = 299, count = 8, quest = 33, oi = 1, map = 1429, x = 47.6, y = 85.0 } } },
+	} })"#;
+	let out = run(
+		&format!("{}{other}", way_back()),
+		ON,
+		r#"
+		emit(shown())
+		E.OpenTab("test/other", true); flush(); at(47.6, 45.1)
+		emit(shown())
+		E.SelectTab(1); flush(); at(47.6, 45.1)
+		emit(shown())"#,
+	);
+	// The first guide shows its second step first; the other tab's guide is on the way already, so it keeps step 1;
+	// back on the first tab, its reorder is where it was.
+	assert_eq!(out[0], json!(2));
+	assert_eq!(out[1], json!(1));
+	assert_eq!(out[2], json!(2));
+}

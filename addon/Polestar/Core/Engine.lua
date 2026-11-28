@@ -16914,7 +16914,8 @@ function Engine.Recalibrate()
 	Own.hereDirty = true
 	-- With the reorder on, the steps are chosen again too: the step on screen goes back to the live one.
 	if ns.Get("behavior.stepReorder") then
-		Own.orderPin, Own.orderPlan, Own.orderMin, Own.orderCool, Own.orderKey = nil, nil, nil, 0, nil
+		local st = Own.orderOf()
+		st.pin, st.plan, st.min, st.cool, st.key = nil, nil, nil, 0, nil
 		if pin then Own.view(nil) end
 	end
 	evaluate()
@@ -16947,9 +16948,19 @@ Own.ORDER_SWITCH = 30 -- seconds more than the order that starts with the shown 
 Own.ORDER_RELEASE = 5 -- seconds saved under which the shown step goes back to the live one
 -- What a step may ask of the player and still move; anything else keeps the guide's order.
 Own.ORDER_KINDS = { accept = true, turnin = true, kill = true, collect = true, interact = true, talk = true, goto = true, note = true, complete = true, use = true }
-Own.orderWin, Own.orderCool, Own.orderMin = {}, 0, nil
-Own.orderPin = nil -- the step this module put on screen
-Own.orderPlan = nil -- the steps in the order shown, while one is
+-- The state of each tab's guide (one `st` per guide object, so a second tab never reads another one's):
+--   pin   the step this module put on screen        plan  the steps in the order shown, while one is
+--   min   the nearest yards the player got to it     cool  the time before which it takes nothing (a rest)
+--   key, win  the window of steps and what it was built for
+Own.orderStates = setmetatable({}, { __mode = "k" })
+function Own.orderOf()
+	local st = Own.orderStates[guide]
+	if not st then
+		st = { cool = 0, win = {} }
+		Own.orderStates[guide] = st
+	end
+	return st
+end
 
 -- The quest ids a step's open goals touch, and whether every open goal of the step can be done
 -- now, from world position c: -> entry x, y, exit x, y, `quests`, `ready`; nil when the step
@@ -16989,10 +17000,11 @@ end
 -- needs (StepOrder.need), filled into ns.StepOrder; kept until the step, the quest log or the
 -- level changes. -> how many steps; the first is the live step.
 function Own.orderFill(Order, c)
+	local st = Own.orderOf()
 	local key = table.concat({ guide.id, tostring(computed), tostring(Own.logStamp), tostring(player and player.level), tostring(c) }, ":")
-	local win = Own.orderWin
-	if Own.orderKey ~= key then
-		Own.orderKey, win.n = key, 0
+	local win = st.win
+	if st.key ~= key then
+		st.key, win.n = key, 0
 		local s = computed
 		while s and win.n < Order.MAX do
 			local w = win[win.n + 1] or { quests = {} }
@@ -17050,9 +17062,10 @@ end
 
 -- Back to the live step: the step this module showed goes, the plan with it.
 function Own.orderRelease(cool)
-	local was = Own.orderPin
-	Own.orderPin, Own.orderPlan, Own.orderMin = nil, nil, nil
-	if cool then Own.orderCool = GetTime() + Own.AIM_COOL end
+	local st = Own.orderOf()
+	local was = st.pin
+	st.pin, st.plan, st.min = nil, nil, nil
+	if cool then st.cool = GetTime() + Own.AIM_COOL end
 	if was and pin == was then
 		Own.view(nil)
 		return true
@@ -17068,10 +17081,11 @@ end
 -- Put step s on screen first (the plan is in `plan`, the steps in the order to do them), the player
 -- being `d` yards from where it is entered.
 function Own.orderTake(s, plan, d)
-	Own.orderPin, Own.orderMin = s, d
-	Own.orderPlan = Own.orderPlan or {}
-	for k = 1, #Own.orderPlan do Own.orderPlan[k] = nil end
-	for k = 1, #plan do Own.orderPlan[k] = plan[k] end
+	local st = Own.orderOf()
+	st.pin, st.min = s, d
+	st.plan = st.plan or {}
+	for k = 1, #st.plan do st.plan[k] = nil end
+	for k = 1, #plan do st.plan[k] = plan[k] end
 	Own.view(s)
 	Own.hereDirty = true
 	return true
@@ -17083,40 +17097,42 @@ end
 -- screen changed.
 function Own.orderTick(c, px, py)
 	local Order = ns.StepOrder
-	local on = Order and guide and computed and c and ns.Get("behavior.stepReorder")
-	if not on then return Own.orderPin ~= nil and Own.orderRelease(false) end
+	local st = guide and Own.orderOf()
+	-- Only a leveling guide moves: a class, dungeon or attunement guide is done in its own order (Own.everyStep).
+	local on = Order and guide and computed and c and ns.Get("behavior.stepReorder") and not Own.everyStep(guide)
+	if not on then return st and st.pin ~= nil and Own.orderRelease(false) or false end
 	-- The step it showed was done and the pin followed forward (evaluate): not the player's pin. It goes
 	-- back to the live step, and the window says so even when nothing is taken in its place.
 	local moved = false
-	if Own.orderPin and pin ~= Own.orderPin and stepDone(Own.orderPin) and (pin == nil or pin > Own.orderPin) then
-		Own.orderPin, Own.orderPlan, Own.orderMin = nil, nil, nil
+	if st.pin and pin ~= st.pin and stepDone(st.pin) and (pin == nil or pin > st.pin) then
+		st.pin, st.plan, st.min = nil, nil, nil
 		if pin then
 			Own.view(nil)
 			moved = true
 		end
 	end
-	if pin and pin ~= Own.orderPin then
-		Own.orderPin, Own.orderPlan = nil, nil
+	if pin and pin ~= st.pin then
+		st.pin, st.plan = nil, nil
 		return moved
 	end
 	if placing or Own.hereBlocked() or (UnitAffectingCombat and UnitAffectingCombat("player")) then return moved end
 	local n = Own.orderFill(Order, c)
-	local win = Own.orderWin
-	if n < 2 then return (Own.orderPin ~= nil and Own.orderRelease(false)) or moved end
+	local win = st.win
+	if n < 2 then return (st.pin ~= nil and Own.orderRelease(false)) or moved end
 	Order.Best(n, px, py)
 	local per = Own.HERE_WINDING / Own.HERE_SPEED
 	local best = Order.order[1]
 	local saved = (Order.base - Order.cost) * per
 	local held
 	for i = 1, n do
-		if win[i].s == Own.orderPin then held = i end
+		if win[i].s == st.pin then held = i end
 	end
-	if Own.orderPin then
+	if st.pin then
 		if not held then return Own.orderRelease(false) or moved end
 		-- Walking away from it, farther than the player got: handed back, and it rests.
 		local d = Own.orderFar(Order, held, px, py)
-		if not Own.orderMin or d < Own.orderMin then Own.orderMin = d end
-		if d > Own.orderMin + Own.AIM_DEVIATE then return Own.orderRelease(true) or moved end
+		if not st.min or d < st.min then st.min = d end
+		if d > st.min + Own.AIM_DEVIATE then return Own.orderRelease(true) or moved end
 		local mine = Order.first[held]
 		if best == held and saved >= Own.ORDER_RELEASE then return moved end
 		-- Another first step only for one that saves ORDER_SWITCH seconds more than this one does.
@@ -17130,7 +17146,7 @@ function Own.orderTick(c, px, py)
 		end
 		return moved
 	end
-	if best == 1 or saved < Own.ORDER_TAKE or GetTime() < Own.orderCool or aim then return moved end
+	if best == 1 or saved < Own.ORDER_TAKE or GetTime() < st.cool or aim then return moved end
 	local plan = {}
 	for k = 1, n do plan[k] = win[Order.order[k]].s end
 	return Own.orderTake(win[best].s, plan, Own.orderFar(Order, best, px, py))
@@ -17140,8 +17156,9 @@ end
 -- step it chose is on screen, then the guide's own order after it. Fills `out` with at most `max`
 -- applicable steps. -> how many.
 function Own.orderSteps(out, from, max)
-	local n, plan = 0, Own.orderPlan
-	if plan and Own.orderPin and pin == Own.orderPin then
+	local st = Own.orderOf()
+	local n, plan = 0, st.plan
+	if plan and st.pin and pin == st.pin then
 		local last = from
 		for k = 1, #plan do
 			if n >= max then return n end

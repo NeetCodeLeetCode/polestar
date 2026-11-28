@@ -3239,13 +3239,19 @@ the same person never splits that person's group.
   order that walks less, the window shows the first of that order with the
   pin the player's Next and Goto use (`Own.view`; `current` is the pin or the
   live step), and the live step comes back when the shown one is done.
+  - *Which guides.* A leveling guide only: a class, dungeon, attunement or
+    other guide that is no leveling guide (`Own.everyStep`) is done in its
+    own order. The state is kept for each tab's guide (`Own.orderOf`), so a
+    class guide opened in a second tab never reads the first one's.
   - *Which steps.* From the live step, at most `StepOrder.MAX` (5) open steps
     in a row that can move (`Own.orderPoints`): no `when` or `skipto`, no
     group or dungeon question pending, no step the player cannot look at, and
     only the goals `Own.ORDER_KINDS` lists (accept, hand-in, kill, collect,
     interact, talk, goto, complete, use, note) with no escort, timed, group or
     `either` goal and every place on the player's continent. A flight, a
-    hearth, a training or a level wait is a wall: the window ends before it.
+    hearth, a class or profession training or a level wait is a wall: the
+    window ends before it. A step for another class or race is not in the
+    guide for the character (`only`), and a class step with a `when` is a wall.
   - *What a step needs* (`Own.orderFill`). A step stays after an earlier one
     when they touch the same quest, when one of its accepts is not takeable
     now (`Own.aheadOk`, no prerequisite handed in first), when a goal of a

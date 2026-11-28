@@ -452,3 +452,16 @@ fn recalibrate_without_a_guide_says_nothing_and_with_the_setting_off_leaves_the_
 	let out = run(&guide("", OFF_THE_WAY, ""), "", r#"at(47.6, 68); at(47.6, 68); E.Recalibrate(); emit(wp())"#);
 	assert_eq!(out, vec![json!("1:1")]);
 }
+
+// Class quests: a goal for one class is the arrow's detour only for that class.
+const CLASS_ONLY: &str = r#"x = 47.6, y = 70, only = { classes = { "WARRIOR" } }"#;
+
+#[test]
+fn a_warrior_objective_is_a_detour_for_a_warrior_and_never_for_a_druid() {
+	let g = guide("", CLASS_ONLY, "");
+	let warrior = run(&g, &format!("w.class, w.className, w.classID = \"WARRIOR\", \"Warrior\", 1\n{ON}"), r#"emit(follow(300))"#);
+	assert_eq!(warrior, vec![json!(["1:1 5:1 1:1", 790])]);
+	let druid = run(&g, &format!("w.class, w.className, w.classID = \"DRUID\", \"Druid\", 11\n{ON}"), r#"emit(follow(300))"#);
+	// Only the wolves: the Druid walks 800 yd (5 yd short of them) and no objective of the Warrior's is aimed.
+	assert_eq!(druid, vec![json!(["1:1", 790])]);
+}
