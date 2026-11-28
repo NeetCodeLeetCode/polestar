@@ -199,6 +199,19 @@ fn collapses_with_a_click_on_the_header_the_totals_stay_the_steps_go() {
 	assert_eq!(again["height"], open["height"]);
 }
 
+// Collapsed, the header names where the journey goes ("Journey to Silithus"): a trip's route sits under the step
+// shown above it and read as the way to that step's person. Open, the destination is the line under the header.
+#[test]
+fn the_header_names_the_destination_only_while_the_journey_is_collapsed() {
+	let out = run(r#"
+		local function label() return JP.head.Label:GetText() end
+		local a = label(); JP.head:Click(); local b = label(); JP.head:Click()
+		emit({ open = a, shut = b, again = label() })"#);
+	assert_eq!(out[0]["open"], "Journey");
+	assert_eq!(out[0]["shut"], "Journey to Silithus");
+	assert_eq!(out[0]["again"], "Journey");
+}
+
 #[test]
 fn clicking_the_current_step_opens_the_skip_menu_a_later_step_does_not() {
 	let out = run("JP.rows[2]:Click(); JP.rows[1]:Click(); emit(MENU)");

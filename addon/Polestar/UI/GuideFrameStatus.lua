@@ -20,8 +20,9 @@ ns.UI.GuideFrame.Part(function(GF)
 	-- step 32"; at the guide's end, the level the route gets you to ("level 22.4
 	-- by step 97"). Behind, with a `level` goal ahead that grinds it: "Behind by
 	-- 2.4 levels: step 32 grinds to level 14 (≈12m)", said plainly. Behind with
-	-- none, in the warning colour: "Behind by 2.4 levels for level 24 by step 21:
-	-- grind ≈1h 10m before then" (or "and no grind step ahead"). "≈" is "~" in a
+	-- none, in the warning colour: "Behind by 2.4 levels: the guide expects level 24
+	-- by step 21. Grind ≈1h 10m to catch up." (or "and has no grind step before
+	-- it"); a second value, the note the row's tooltip adds. "≈" is "~" in a
 	-- face without it (Theme.Approx, #1906). It never names a quest or its level
 	-- (Fitz, #3438). nil without a target ahead or the Codex.
 	GF.PACE_SLACK = 1
@@ -54,9 +55,11 @@ ns.UI.GuideFrame.Part(function(GF)
 			return time and string.format(L["Behind by %s: step %d grinds to level %s (%s)"], by, stepNo, level, time)
 				or string.format(L["Behind by %s: step %d grinds to level %s"], by, stepNo, level)
 		end
-		local text = time and string.format(L["Behind by %s for level %s by step %d: grind %s before then"], by, level, stepNo, time)
-			or string.format(L["Behind by %s for level %s by step %d, and no grind step ahead"], by, level, stepNo)
-		return "|c" .. Theme.Hex("warning") .. text .. "|r"
+		-- No grind step ahead: what the guide expects, what to do about it (the tooltip's note says how), in the warning colour.
+		local text = time and string.format(L["Behind by %s: the guide expects level %s by step %d. Grind %s to catch up."], by, level, stepNo, time)
+			or string.format(L["Behind by %s: the guide expects level %s by step %d and has no grind step before it."], by, level, stepNo)
+		local note = string.format(L["The guide expects level %s by step %d, and you are %s short of that. It has no grind step before then: kill mobs or take side quests on the way to catch up."], level, stepNo, by)
+		return "|c" .. Theme.Hex("warning") .. text .. "|r", note
 	end
 
 	-- XP pace from the QoL tracker and the route's pace (GF.PaceText), as the
@@ -71,8 +74,11 @@ ns.UI.GuideFrame.Part(function(GF)
 		local xp = GF.xp
 		local h = GF.Space("xpRow", GF.XPROW.h) + (xp.psRest and GF.XPROW.restH or 0)
 		local room = GF.Space("xpRoom", (width or 0) - PAD * 2 - 11 - 7, width or 0)
-		if xp.psLine and room > 0 and W.TextWidth(xp.Text, xp.psLine) > room then
-			h = h + math.floor(xp.Text:GetLineHeight() + 0.5)
+		-- One line more for a text wider than the room, a third for one wider than two rooms (the behind-pace line
+		-- names what the guide expects: two lines, three with the XP an hour before it).
+		if xp.psLine and room > 0 then
+			local lines = math.min(3, math.ceil(W.TextWidth(xp.Text, xp.psLine) / room))
+			if lines > 1 then h = h + (lines - 1) * math.floor(xp.Text:GetLineHeight() + 0.5) end
 		end
 		return h
 	end
@@ -97,8 +103,10 @@ ns.UI.GuideFrame.Part(function(GF)
 		local restLine
 		if not (type(stats) == "table" and stats.maxed) then
 			-- The pace line, unless turned off (guideWindow.pace, #2371, #2379).
-			local pace = xpLine and GF.On("pace") and GF.PaceText(stats)
+			local pace, paceNote
+			if xpLine and GF.On("pace") then pace, paceNote = GF.PaceText(stats) end
 			if pace then parts[#parts + 1] = pace end
+			GF.xp.psPaceNote = pace and paceNote or nil
 			-- Boosted Rest and the sleeping bag (QoL/Rest.lua): empty while its
 			-- setting is off or there is nothing to say.
 			local rest = d.RestParts and d.RestParts()

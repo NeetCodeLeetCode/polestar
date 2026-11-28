@@ -1660,7 +1660,7 @@ fn on_the_way_to_a_nearby_service_a_banner_and_the_nearby_menu_offer_the_way_bac
 		emit({ before = before, shown = shown, first = first, ended = ended, after = B:IsShown() })"#)
 	.remove(0);
 	assert_eq!(out["before"], false);
-	assert_eq!(out["shown"], json!([true, "On the way to Innkeeper Farley (Innkeeper).", "Back to the guide", false]));
+	assert_eq!(out["shown"], json!([true, "Innkeeper: on the way to Innkeeper Farley.\nThe guide waits at step 3: Kill Kobold Vermin.", "Back to the guide", false]));
 	assert_eq!(out["first"], "Back to the guide");
 	assert_eq!(out["ended"], true);
 	assert_eq!(out["after"], false, "the banner goes with the trip");
@@ -1685,10 +1685,40 @@ fn on_the_way_to_your_own_map_point_a_banner_offers_the_way_back_to_the_guide() 
 		emit({ goal = goal, shown = shown, back = lastCall("BackToGuide") ~= nil, target = uistub.target == nil, after = B:IsShown() })"#)
 	.remove(0);
 	assert_eq!(out["goal"], false, "a goal's own point is no point of yours");
-	assert_eq!(out["shown"], json!([true, "On the way to your map point (Stranglethorn Vale 41, 11).", "Back to the guide", false]));
+	assert_eq!(out["shown"], json!([true, "Your map point: on the way to Stranglethorn Vale 41, 11.\nThe guide waits at step 3: Kill Kobold Vermin.", "Back to the guide", false]));
 	assert_eq!(out["back"], true);
 	assert_eq!(out["target"], true);
 	assert_eq!(out["after"], false, "the banner goes with the point");
+}
+
+// The banner under a trip says what the guide does meanwhile (the step on screen is still its own): the live step's
+// number and the goal "Back to the guide" puts the arrow on again. A trip's label leads ("Next stop: on the way to
+// The Barrens."); one with no label of its own, or the place's own name, reads "On the way to …". With no live step
+// (a finished guide) the first line stands alone.
+#[test]
+fn the_trip_banner_names_the_trip_and_where_the_guide_waits() {
+	let out = run(r#"
+		uistub.setGuide(uistub.elwynn, 3)
+		local B = GF.parts.banner
+		uistub.trip = { name = "The Barrens", label = "Next stop" }
+		Polestar.Fire("NAV_TRIP", uistub.trip)
+		local next = B.Text:GetText()
+		local goal = Polestar.Engine.GetWaypoint().label
+		uistub.trip = { name = "Smith Bob", label = "Smith Bob" }
+		Polestar.Fire("NAV_TRIP", uistub.trip)
+		local same = B.Text:GetText()
+		uistub.trip = { name = "Smith Bob" }
+		Polestar.Fire("NAV_TRIP", uistub.trip)
+		local bare = B.Text:GetText()
+		Polestar.Engine.GetLiveStep = function() return nil end
+		Polestar.Fire("NAV_TRIP", uistub.trip)
+		emit({ next = next, goal = goal, same = same, bare = bare, noLive = B.Text:GetText() })"#)
+	.remove(0);
+	let goal = text(&out["goal"]);
+	assert_eq!(out["next"], format!("Next stop: on the way to The Barrens.\nThe guide waits at step 3: {goal}."));
+	assert_eq!(out["same"], format!("On the way to Smith Bob.\nThe guide waits at step 3: {goal}."), "a label that is the name says it once");
+	assert_eq!(out["bare"], out["same"]);
+	assert_eq!(out["noLive"], "On the way to Smith Bob.", "no live step: no second line");
 }
 
 // #3878: with the action on the right (guideWindow.bannerLinks "right", Atlas's), a notice whose text would wrap
@@ -2338,17 +2368,53 @@ fn the_pace_line_says_on_pace_behind_with_a_grind_coming_or_behind_with_none_and
 	assert_eq!(out["grindNoRate"], "Behind by 1.2 levels: step 32 grinds to level 20");
 	assert_eq!(out["bars"], "On pace for level 18.5 by step 12", "under a level short: on pace, no warning");
 	// Behind with no grind step: the guide's end level, and how long to grind on the way.
-	assert_eq!(out["none"], warn("Behind by 2.4 levels for level 24 by step 21: grind ≈2h 00m before then").as_str());
-	assert_eq!(out["noneNoRate"], warn("Behind by 2.4 levels for level 24 by step 21, and no grind step ahead").as_str());
+	assert_eq!(out["none"], warn("Behind by 2.4 levels: the guide expects level 24 by step 21. Grind ≈2h 00m to catch up.").as_str());
+	assert_eq!(out["noneNoRate"], warn("Behind by 2.4 levels: the guide expects level 24 by step 21 and has no grind step before it.").as_str());
 	// A quest well over you on the live step changes nothing (#3438): the plain lines.
-	assert_eq!(out["hard"], warn("Behind by 3.6 levels for level 24 by step 21: grind ≈2h 38m before then").as_str());
-	assert_eq!(out["hardNoRate"], warn("Behind by 3.6 levels for level 24 by step 21, and no grind step ahead").as_str());
-	assert_eq!(out["hardNow"], warn("Behind by 3.6 levels for level 24 by step 21: grind ≈2h 38m before then").as_str());
+	assert_eq!(out["hard"], warn("Behind by 3.6 levels: the guide expects level 24 by step 21. Grind ≈2h 38m to catch up.").as_str());
+	assert_eq!(out["hardNoRate"], warn("Behind by 3.6 levels: the guide expects level 24 by step 21 and has no grind step before it.").as_str());
+	assert_eq!(out["hardNow"], warn("Behind by 3.6 levels: the guide expects level 24 by step 21. Grind ≈2h 38m to catch up.").as_str());
 	assert_eq!(out["hardOnPace"], "On pace for level 22.5 by step 29");
 	assert_eq!(out["hardOnPaceNoRate"], "On pace for level 22.5 by step 29");
 	assert_eq!(out["hardOnPaceNow"], "On pace for level 22.5 by step 29");
 	assert_eq!(out["row"], "3.4k XP/h  \u{b7}  Behind by 1.2 levels: step 32 grinds to level 20 (≈0h 30m)", "one line in the XP row");
 	assert_eq!(out["nothing"], false, "no target and no Codex: no line");
+}
+
+// The behind-pace line says what the guide expects and, on hover, what to do about it; on pace and a grind ahead
+// need no note. The row grows to the lines the text wraps to, up to three.
+#[test]
+fn the_behind_pace_line_carries_a_hover_note_that_says_what_to_do() {
+	let out = run(r#"
+		local stats = { rate = 3400, maxed = false }
+		Polestar.QoL = {
+			GetXPStats = function() return stats end,
+			Duration = function(s) return string.format("%dh %02dm", math.floor(s / 3600), math.floor(s % 3600 / 60)) end,
+			XP = { Short = function(n) return string.format("%.1fk", n / 1000) end, Summary = function() return "Level 12" end },
+		}
+		uistub.setGuide(uistub.elwynn, 3)
+		local pace
+		Polestar.Levels.Pace = function() return pace end
+		local out = {}
+		pace = { target = 20, step = 32, reach = 20.1, bars = 0, short = 0, xp = 0, kind = "goal", live = 30 }
+		out.onPace = { GF.PaceText(stats) }
+		pace = { target = 20, step = 32, reach = 18.8, bars = 24, short = 1.2, xp = 1700, kind = "goal", live = 30 }
+		out.grind = select('#', GF.PaceText(stats))
+		pace = { target = 24, step = 21, reach = 21.6, bars = 48, short = 2.4, xp = 6800, kind = "end", live = 3 }
+		Polestar.Fire("QOL_XP_UPDATED", stats)
+		stub.RunScript(GF.xp, "OnEnter")
+		out.tip = GameTooltip.lines
+		out.note = GF.xp.psPaceNote
+		pace = { target = 20, step = 32, reach = 20.1, bars = 0, short = 0, xp = 0, kind = "goal", live = 30 }
+		Polestar.Fire("QOL_XP_UPDATED", stats)
+		out.after = GF.xp.psPaceNote or false
+		emit(out)"#)
+	.remove(0);
+	assert_eq!(out["onPace"], json!(["On pace for level 20 by step 32"]), "on pace: the line alone");
+	assert_eq!(out["grind"], 1, "a grind ahead says it plainly: no note");
+	assert_eq!(out["note"], "The guide expects level 24 by step 21, and you are 2.4 levels short of that. It has no grind step before then: kill mobs or take side quests on the way to catch up.");
+	assert_eq!(out["tip"][2], out["note"], "the hover reads the note under the line");
+	assert_eq!(out["after"], false, "back on pace: the note goes with the warning");
 }
 
 // #3438 (Foomix, 0.4.2): "Level 38 quest: you're 35.7" under a normal Stranglethorn step read as a warning. Polestar
@@ -3128,7 +3194,7 @@ fn train_due_shows_a_training_banner_after_the_out_levelled_offer_show_takes_the
 	assert_eq!(out["target"], json!(["SetTarget", 1453, 79.6, 70.2, "Ander Germaine"]));
 	assert_eq!(out["aimed"], json!(["trainer", 96.5]), "the trainer's stop kind and height (#180)");
 	assert_eq!(out["trip"], json!(["StartTrip", "Ander Germaine", "Class trainer"]), "a trip: it ends at the trainer (#1686)");
-	assert_eq!(out["afterShow"], json!([true, "On the way to Ander Germaine (Class trainer).", "Back to the guide"]));
+	assert_eq!(out["afterShow"], json!([true, "Class trainer: on the way to Ander Germaine.\nThe guide waits at step 3: Kill Kobold Vermin.", "Back to the guide"]));
 	assert_eq!(out["afterLater"], false);
 }
 

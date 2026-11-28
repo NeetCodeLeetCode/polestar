@@ -474,6 +474,9 @@ local function build(parent)
 	head.Time = text(head, "number", "text")
 	head.Time:SetJustifyH("RIGHT")
 	head.Time:SetPoint("RIGHT", head.Dot, "LEFT", -5, 0)
+	-- The label stops short of the time, so a destination in it (collapsed: "Journey to The Barrens") is cut, not overlapped.
+	head.Label:SetWordWrap(false)
+	head.Label:SetPoint("RIGHT", head.Time, "LEFT", -8, 0)
 	head:SetScript("OnClick", function() ns.Set("nav.journeyOpen", not open()) end)
 	head:SetScript("OnEnter", function(self)
 		W.Color(self.Label, "textDim")
@@ -621,6 +624,9 @@ function JP.Refresh(force)
 	if force then plan.legs = nil end
 	if changed then fillStructure(legs, ci) end
 	head.Icon:SetTexture(Theme.Media(open() and "chevron-up" or "chevron-down"))
+	-- Open, the destination is the line under the header; collapsed, the header says where the journey goes, so a
+	-- trip's route does not read as the way to the step shown above it.
+	head.Label:SetText(open() and L["Journey"] or format(L["Journey to %s"], destination(legs)))
 	-- The x while the journey leads to a point of your own; the chevron moves over for it.
 	local N = ns.Nav
 	local own = N and N.IsOverride and N.IsOverride() and true or false
