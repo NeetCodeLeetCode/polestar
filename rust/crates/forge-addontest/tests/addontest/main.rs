@@ -171,8 +171,8 @@ mod engine_live_detour;
 mod engine_live_order;
 #[path = "engine-live-speed.rs"]
 mod engine_live_speed;
-#[path = "engine-scenarios.rs"]
-mod engine_scenarios;
+#[path = "engine-live-value.rs"]
+mod engine_live_value;
 #[path = "engine-lost-quest.rs"]
 mod engine_lost_quest;
 #[path = "engine-manual.rs"]
@@ -215,6 +215,8 @@ mod engine_route_picks;
 mod engine_routes;
 #[path = "engine-routing-state.rs"]
 mod engine_routing_state;
+#[path = "engine-scenarios.rs"]
+mod engine_scenarios;
 #[path = "engine-sections.rs"]
 mod engine_sections;
 #[path = "engine-sell-repair.rs"]

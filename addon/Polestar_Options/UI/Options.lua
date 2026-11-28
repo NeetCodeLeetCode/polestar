@@ -331,6 +331,10 @@ local BUILTIN = {
 		{ kind = "toggle", key = "behavior.stepReorder", label = L["Reorder the next steps"], new = "0.4.4",
 			help = L["When the next few steps of the guide can be done in an order that walks less, the window shows the one to do first. The guide, its steps and your progress stay as they are, and a step that needs another one, a flight, a dungeon or a timed quest keeps its place."],
 			search = "reorder, steps, order, route, shortest, dynamic, out of order, next steps, walk less" },
+		-- The reorder by XP (Engine Own.orderFill, Core/StepOrder.lua): off by default.
+		{ kind = "toggle", key = "behavior.stepReorderXp", label = L["Order the next steps by XP"], new = "0.4.4",
+			help = L["With Reorder the next steps on, the window shows first the step that pays XP soonest, counting the walk and the work of each step. It never takes longer in all than the guide's own order."],
+			search = "reorder, steps, order, xp, experience, fastest, per minute, level, dynamic" },
 		-- Dungeon quests you pass (Engine Own.hereDungeons, Dungeons/Nearby.lua): off by default.
 		{ kind = "toggle", key = "behavior.whileHereDungeons", label = L["Dungeon quests you pass"], new = "0.4.4",
 			help = L["Also a dungeon's quest, or the first quest of its chain, when you walk by its giver: for a dungeon up to 10 levels ahead, while your quest log has 5 free slots. Taken now, it is in your log when you get there."],
