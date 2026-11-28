@@ -39,6 +39,28 @@ RR.SETTINGS = {
 }
 
 ---------------------------------------------------------------------------
+-- Sections
+---------------------------------------------------------------------------
+
+-- A part of the report written by its own file: RR.AddSection(name, fn, place) with `fn(add)` that calls
+-- add(line) for each line, `place` "before" (above the step reorder lines: the arrow and Next stop) or
+-- "after" (below the objective lines, above the settings). A section that fails is reported by name and the
+-- rest still print. Sections run in the order they were added.
+RR.sections = {}
+function RR.AddSection(name, fn, place)
+	RR.sections[#RR.sections + 1] = { name = name, fn = fn, place = place == "before" and "before" or "after" }
+end
+
+local function runSections(place, add)
+	for _, section in ipairs(RR.sections) do
+		if section.place == place then
+			local ok, err = pcall(section.fn, add)
+			if not ok then add(("Section %s failed: %s"):format(section.name, tostring(err))) end
+		end
+	end
+end
+
+---------------------------------------------------------------------------
 -- Keeping names out
 ---------------------------------------------------------------------------
 
@@ -130,7 +152,8 @@ end
 -- The report
 ---------------------------------------------------------------------------
 
-local function fixed(n) return ("%.1f"):format(n or 0) end
+local F = UI.ReportFormat
+local fixed, onOff = F.fixed, F.onOff
 
 -- "step 4 (guide step 7)": the step as the player counts it, then the guide's own index.
 local function stepName(s)
@@ -140,13 +163,14 @@ local function stepName(s)
 	return ("step %d"):format(s)
 end
 
+RR.StepName = stepName
+
 local function stepList(steps)
 	local out = {}
 	for i, s in ipairs(steps or {}) do out[i] = tostring((ns.Engine.StepNumber and ns.Engine.StepNumber(s)) or s) end
 	return table.concat(out, " ")
 end
 
-local function onOff(v) return v and "on" or "off" end
 
 -- A setting as the report writes it: key=on, key=180, key=balanced. The route style reads as the router reads it
 -- (a style it does not know is Balanced) and real paths are on unless turned off, as Report's Routes line has them.
@@ -191,6 +215,24 @@ local function reorderLines(r, add)
 	if #win > 0 then add("Reorder window: " .. table.concat(win, "; ")) end
 end
 
+-- Why an objective line did or did not lead its path, from the numbers the poll measured: " · starts the best path",
+-- or " · lost: ..." with the one reason that applies first.
+function RR.WhyObjective(i, line, last, a)
+	if last.first == i then return " · starts the best path" end
+	local first = last.lines[last.first or 0]
+	if not (line.score and line.secs) or line.score <= 0 then
+		return (" · lost: no path through it fits the limit of %d s"):format(a.limit)
+	end
+	if line.secs > a.limit then return (" · lost: its path adds %s s, over the limit of %d s"):format(fixed(line.secs), a.limit) end
+	if line.score < a.trigger and line.secs > a.free then
+		return (" · lost: scores %s a minute, under the %s it takes at, and adds more than %d s"):format(fixed(line.score), fixed(a.trigger), a.free)
+	end
+	if first and first.score then
+		return (" · lost: the best path through objective %d scores %s a minute against %s"):format(last.first, fixed(first.score), fixed(line.score))
+	end
+	return " · lost: another path scores more"
+end
+
 -- The arrow that takes nearby objectives: its setting, what it weighed in its last poll
 -- (each line's value in percent of a level, its score for each minute of extra walking,
 -- the seconds it adds) and what it did.
@@ -206,8 +248,9 @@ local function aimLines(a, from, add)
 	local last = a.on and a.last
 	if not last then return end
 	for i, line in ipairs(last.lines) do
-		add(("Objective %d: quest %s · worth %s%% of a level · %s a minute, %s s extra%s"):format(i, tostring(line.quest), fixed(line.value),
-			line.score and fixed(line.score) or "no score", line.secs and fixed(line.secs) or "?", last.held == i and " · held" or ""))
+		add(("Objective %d: quest %s · worth %s%% of a level · %s a minute, %s s extra%s%s"):format(i, tostring(line.quest), fixed(line.value),
+			line.score and fixed(line.score) or "no score", line.secs and fixed(line.secs) or "?", last.held == i and " · held" or "",
+			RR.WhyObjective(i, line, last, a)))
 	end
 	if last.first then
 		add(("Best path: starts with objective %d · scores %s a minute, %s s extra%s · takes at %s, lets go under %s, a swap needs %s times as much"):format(
@@ -223,6 +266,7 @@ function RR.Lines()
 	add(L["Polestar routing report"])
 	local E = ns.Engine
 	local st = E and E.RoutingState and E.RoutingState()
+	runSections("before", add)
 	if st then
 		reorderLines(st.reorder, add)
 		aimLines(st.aim, st.arrowFrom, add)
@@ -230,6 +274,7 @@ function RR.Lines()
 			add(("Recalibrate: pressed %d time%s this session · last %d s ago"):format(st.recalibrated.count, st.recalibrated.count == 1 and "" or "s", st.recalibrated.ago))
 		end
 	end
+	runSections("after", add)
 	local settings = {}
 	for _, path in ipairs(RR.SETTINGS) do
 		local v = settingValue(path)

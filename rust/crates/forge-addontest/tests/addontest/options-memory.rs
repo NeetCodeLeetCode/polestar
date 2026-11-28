@@ -32,7 +32,9 @@ const LOGIN_BASE: f64 = 11003.0;
 /// character, so the runner's longer checkout reads 17 to 25 KiB more than a local run of the same tree. A table
 /// whose keys pass a power of two doubles its hash part, so the login can jump by tens of KiB at once (Engine.lua's
 /// `Own` at 512 keys, the class cards' 1,034 class quests).
-const LOGIN: f64 = 15330.0;
+// The fork's routing report detail (the arrow log, Next stop's log and three report sections, 7 new files) took the core at
+// login to 15,392 on the runner. That figure plus 3 %.
+const LOGIN: f64 = 15860.0;
 // The row "Order the next steps by XP" took the figures to 2,732 loaded, 4,637 opened and 5,876 peak (next: 2,475, 4,351,
 // 5,619): the page's tables passed a power of two. The fork's "Fastest XP" switch, one more key of the behavior section
 // (Core/FastestXP.lua), lands in the same tables: 2,732, 4,609 and 5,883 without that row. Each budget is the larger

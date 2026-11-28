@@ -37,6 +37,9 @@ local pace = { times = {} }
 -- Forget what was told and the pacing (a new session of the card; the tests).
 function RAC.Reset() told, taken, pace = {}, {}, { times = {} } end
 
+-- The pacing state and the places told, for the routing report: { last, times }, and "quest:level" keys.
+function RAC.Pacing() return pace, told end
+
 local function CT() return UI.ClassToast end
 local function now() return GetTime and GetTime() or 0 end
 
