@@ -62,6 +62,7 @@ test('the arrow log lists each change with its time and the event it followed', 
 		N.StartTrip(t, "The Barrens", "Next stop")
 		stub.advance(30)
 		N.EndTrip(true)
+		stub.advance(1)
 		emit({ n = #AL.Entries(), text = report(), first = AL.Entries()[1].source })`);
 	assert.ok(out.n >= 2, `${out.n} entries`);
 	assert.equal(out.first, 'trip', 'the point set for a trip is logged as the trip');

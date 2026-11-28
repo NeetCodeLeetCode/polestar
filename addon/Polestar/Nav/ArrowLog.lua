@@ -98,9 +98,8 @@ local function reasonNow(t, source)
 	return nil
 end
 
--- A change of target: one entry, or one more count on the entry it repeats.
-function AL.OnTarget(target)
-	local t = now()
+-- Writes the entry of a change of target that happened at time `t`.
+local function record(target, t)
 	local d = AL.Describe(target)
 	local k = key(d)
 	local last = log[count]
@@ -108,7 +107,7 @@ function AL.OnTarget(target)
 		last.count, last.last = last.count + 1, t
 		return
 	end
-	d.key, d.at, d.last, d.count, d.target = k, t, t, 1, target
+	d.key, d.at, d.last, d.count = k, t, t, 1
 	d.why = reasonNow(t, d.source)
 	d.clock = date and date("%H:%M:%S") or nil
 	if count >= AL.MAX then
@@ -117,6 +116,14 @@ function AL.OnTarget(target)
 	end
 	count = count + 1
 	log[count] = d
+end
+
+-- A change of target: one entry, or one more count on the entry it repeats. Written a frame later: describing the
+-- arrow asks Nav.Trip, which drops a trip another target replaced without saying so, and Nav's own check for that
+-- (it fires NAV_TRIP) comes right after this call. A trip is set as a point first, so by then it is a trip.
+function AL.OnTarget(target)
+	local t = now()
+	ns.After(0, function() record(target, t) end)
 end
 
 function AL.Because(text)
@@ -140,23 +147,13 @@ function AL.Clear()
 	because.at, because.text = nil, nil
 end
 
--- A trip began or ended (Nav.StartTrip, Nav.EndTrip, another target). The target changed just before the event
--- (a trip is set as a point first, and ends by letting the point go), so the latest entry is the one it explains.
+-- A trip began or ended (Nav.StartTrip, Nav.EndTrip, another target): the reason of the entry written next.
 ns.On("NAV_TRIP", function(trip)
-	local t, last = now(), log[count]
 	if trip then
-		tripAt[trip] = t
-		local why = ("a trip started: %s to %s"):format(tostring(trip.label or "?"), tostring(trip.name or "?"))
-		AL.Because(why)
-		if last and last.target == trip.target and t - last.at <= AL.REASON_SECS then
-			last.source, last.trip, last.why = "trip", trip, why
-			last.text = ("a trip: %s to %s"):format(tostring(trip.label or "?"), tostring(trip.name or "?"))
-			last.key = key(last)
-		end
+		tripAt[trip] = now()
+		AL.Because(("a trip started: %s to %s"):format(tostring(trip.label or "?"), tostring(trip.name or "?")))
 	else
-		local why = "the trip ended (arrived, or Back to the guide)"
-		AL.Because(why)
-		if last and t - last.at <= AL.REASON_SECS and not last.why then last.why = why end
+		AL.Because("the trip ended (arrived, or Back to the guide)")
 	end
 end)
 ns.On("STEP_CHANGED", function(step) AL.Because("the guide moved to step " .. tostring(step)) end)
