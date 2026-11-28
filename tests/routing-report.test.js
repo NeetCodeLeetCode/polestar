@@ -67,7 +67,7 @@ test('/polestar routing opens the copy window on the report, selected, with the 
 	for (const s of ['behavior.stepReorder=off', 'behavior.whileHereAim=off', 'behavior.whileHereRadius=180', 'nav.routeStyle=balanced']) {
 		assert.ok(out.text.includes(s), `${s} in the report`);
 	}
-	assert.ok(!out.text.includes('skipSlow'), 'a setting this Polestar does not have is left out');
+	assert.ok(out.text.includes('behavior.skipSlow=off'), 'Skip slow quests is among the routing settings');
 	assert.ok(lines.includes('Guide: Elwynn Forest (forever/alliance/human/01-elwynn-forest)'), 'the bug report\'s details follow');
 	assert.ok(lineWith(out.text, 'Arrow:').includes('yd'), out.text);
 	assert.ok(lineWith(out.text, 'Where:').includes('Elwynn Forest'), out.text);
