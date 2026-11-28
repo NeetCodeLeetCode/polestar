@@ -3247,6 +3247,52 @@ the same person never splits that person's group.
   groupIndex`; each goal view carries `group = groupIndex`. `name` is the
   NPC's or object's name (nil for "here"); map/x/y/f its position (the first
   located goal of the group).
+- **Step reorder** (`behavior.stepReorder`, off by default; `Own.orderTick`,
+  `Core/StepOrder.lua`, plain geometry). The live step (`computed`) is always
+  the first open step in written order: passing it latches and stores earlier
+  steps, so nothing here changes it. When the next few steps can be done in an
+  order that walks less, the window shows the first of that order with the
+  pin the player's Next and Goto use (`Own.view`; `current` is the pin or the
+  live step), and the live step comes back when the shown one is done.
+  - *Which guides.* A leveling guide only: a class, dungeon, attunement or
+    other guide that is no leveling guide (`Own.everyStep`) is done in its
+    own order. The state is kept for each tab's guide (`Own.orderOf`), so a
+    class guide opened in a second tab never reads the first one's.
+  - *Which steps.* From the live step, at most `StepOrder.MAX` (5) open steps
+    in a row that can move (`Own.orderPoints`): no `when` or `skipto`, no
+    group or dungeon question pending, no step the player cannot look at, and
+    only the goals `Own.ORDER_KINDS` lists (accept, hand-in, kill, collect,
+    interact, talk, goto, complete, use, note) with no escort, timed, group or
+    `either` goal and every place on the player's continent. A flight, a
+    hearth, a class or profession training or a level wait is a wall: the
+    window ends before it. A step for another class or race is not in the
+    guide for the character (`only`), and a class step with a `when` is a wall.
+  - *What a step needs* (`Own.orderFill`). A step stays after an earlier one
+    when they touch the same quest, when one of its accepts is not takeable
+    now (`Own.aheadOk`, no prerequisite handed in first), when a goal of a
+    quest not in the log has no accept in the step, or, with fewer free log
+    slots than its accepts, when the earlier step hands in a quest.
+  - *The order.* `StepOrder.Best` tries every order that keeps those needs
+    (at most 120) and counts the yards from the player to the first step's
+    entry, from each step's last place to the next one's first, and on to the
+    guide's step after the window. The guide's own order wins every tie.
+  - *When it changes.* The best order is taken when it saves
+    `Own.ORDER_TAKE` (20) seconds of walking over the guide's order
+    (`Own.HERE_WINDING` / `Own.HERE_SPEED` seconds a yard), held while it
+    saves `Own.ORDER_RELEASE` (5), and another first step replaces it only
+    when that order is `Own.ORDER_SWITCH` (30) seconds better. The player
+    walking `Own.AIM_DEVIATE` (60) yards past the nearest they got to the
+    shown step hands it back and it rests `Own.AIM_COOL` (30) s. A step of
+    the player's own on screen, a fight, a blocked player (`Own.hereBlocked`)
+    or an aimed goal leave it as it is. The pin that follows forward when the
+    shown step is done is taken back at the next poll.
+  - *The route.* While the chosen step is shown, `Own.routePoints` lists the
+    steps in the planned order (`Own.orderSteps`), so the arrow's lookahead and
+    the While-you're-here lines measure the walk the player will make.
+  - *Recalibrate* puts the shown step back, forgets the rest and plans again
+    at once when the setting is on. The poll runs while the setting is on and
+    the guide has a live step (`updateTicker`).
+
 - **Current goal and waypoint:** the view's `current` is the goal the window
   marks and the arrow leads to: in the focus group, the first open blocking
   goal, else the first open optional one (not skipped); a "Go to" naming the

@@ -34,7 +34,9 @@ const LOGIN_BASE: f64 = 11003.0;
 /// `Own` at 512 keys, the class cards' 1,034 class quests).
 const LOGIN: f64 = 15330.0;
 const LOADED: f64 = 2522.0;
-const OPENED: f64 = 4319.0;
+// The fork's "Reorder the next steps" row took the opened figure to 4,345 KiB on the runner (4,193 on next f5bd74406e):
+// the first page's row table passed a power of two. 4,345 plus 3 %.
+const OPENED: f64 = 4475.0;
 const PEAK: f64 = 5763.0;
 
 fn n(v: &Value) -> f64 {

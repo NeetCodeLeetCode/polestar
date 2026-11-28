@@ -2423,6 +2423,14 @@
    "at": [
     "Guide > Window > Dynamic Questing"
    ]
+  },
+  {
+   "id": "behavior.stepReorder",
+   "kind": "toggle",
+   "label": "Reorder the next steps",
+   "at": [
+    "Guide > Window > Dynamic Questing"
+   ]
   }
  ]
 }

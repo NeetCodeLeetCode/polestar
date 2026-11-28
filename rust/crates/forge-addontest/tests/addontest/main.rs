@@ -162,6 +162,8 @@ mod engine_level_pick;
 mod engine_level_wait;
 #[path = "engine-live-detour.rs"]
 mod engine_live_detour;
+#[path = "engine-live-order.rs"]
+mod engine_live_order;
 #[path = "engine-live-speed.rs"]
 mod engine_live_speed;
 #[path = "engine-lost-quest.rs"]

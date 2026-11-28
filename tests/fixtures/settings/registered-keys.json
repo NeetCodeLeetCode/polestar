@@ -16,6 +16,7 @@
 	"behavior.routeChoice",
 	"behavior.skipGrey",
 	"behavior.spokenDelay",
+	"behavior.stepReorder",
 	"behavior.trainReminder",
 	"behavior.warnClosing",
 	"behavior.whileHere",

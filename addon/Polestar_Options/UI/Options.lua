@@ -327,6 +327,10 @@ local BUILTIN = {
 					search = "arrow, detour, seconds, out of the way, nearby objective",
 					disabled = function() return not (ns.Get("behavior.whileHere") and ns.Get("behavior.whileHereAim")) end },
 			} },
+		-- 0.4.4's live step reorder (Engine Own.orderTick): off by default.
+		{ kind = "toggle", key = "behavior.stepReorder", label = L["Reorder the next steps"], new = "0.4.4",
+			help = L["When the next few steps of the guide can be done in an order that walks less, the window shows the one to do first. The guide, its steps and your progress stay as they are, and a step that needs another one, a flight, a dungeon or a timed quest keeps its place."],
+			search = "reorder, steps, order, route, shortest, dynamic, out of order, next steps, walk less" },
 		-- Dungeon quests you pass (Engine Own.hereDungeons, Dungeons/Nearby.lua): off by default.
 		{ kind = "toggle", key = "behavior.whileHereDungeons", label = L["Dungeon quests you pass"], new = "0.4.4",
 			help = L["Also a dungeon's quest, or the first quest of its chain, when you walk by its giver: for a dungeon up to 10 levels ahead, while your quest log has 5 free slots. Taken now, it is in your log when you get there."],
