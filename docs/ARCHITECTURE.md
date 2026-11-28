@@ -1908,7 +1908,7 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   candidate of its best tier with the least detour on the guide's route (`Own.routeFirst`), the pick that the
   training banner makes (below): a nearer candidate off the way loses, a candidate within 15 seconds of a nearer
   one loses to it, and a goal with no route ahead keeps the nearest. The route is the one the banner reads
-  (`Own.routePoints`: the first open place of each of the next 8 applicable steps). A goal that the route reads
+  (`Own.routePoints`: the first open place of each of the next 8 applicable steps; a class training goal's place is the trainer picked for the character, `Own.goalSpot`; another pick ahead is no place). A goal that the route reads
   picks without it (`Own.routing`) and keeps no pick. The reminder's own pseudo goal (`byPlace`) ranks by place
   alone, as `Nav/Nearby.lua` lists it. The `forge-judge` replay has the same rule (`route_first`). It re-picks on step start, zone change and landing, never per
   frame. The goal view then carries the chosen `npc`, `npcName`, `map`, `x`, `y`,
@@ -3870,7 +3870,9 @@ holds at its opening, see "Not yet available"):
   (`Own.placedStamp[guideId]` against `Own.logStamp`). `Engine.SelectTab` calls it for the tab brought to the front,
   and `ZONE_CHANGED_NEW_AREA` for the loaded guide. It uses the same `place`, so
   it marks only what a reload marks, keeps the player's own marks, stays quiet
-  when nothing is marked and respects an undone placement. A sub-zone change
+  when nothing is marked and respects an undone placement. In that placing
+  an open `train class` goal holds (`Own.keepTraining`), as quest work done
+  further on is no sign the class was trained. A sub-zone change
   (`ZONE_CHANGED`) does not place. Jumping to the zone the player stands in
   (#1249) is a different change and is not part of it.
 - Before the start (with no start: before the last quest progress), a step
