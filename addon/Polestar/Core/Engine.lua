@@ -5589,6 +5589,9 @@ function Own.catchUpPast(level)
 	return out, why
 end
 
+-- Guide id -> the `placing` that Reset everything began (#4111): the placing it holds for, no other.
+Own.freshPlacing = {}
+
 -- Skipped earlier (#86). The high-water mark (anchorStep with turnedOnly) is
 -- the furthest step the character has done quest work in. The open accepts
 -- before it that the character can take, not grey for them, are passed for
@@ -5776,7 +5779,8 @@ local function place()
 	local added = type(addedAll) == "table" and addedAll[guide.id] or nil
 	local fromTab = logReady and Own.logPlaced[guide.id]
 	local anchor = anchorStep(added, fromTab)
-	local mark = logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
+	-- After Reset everything (#4111) the placing it began starts the guide at the first quest the player can take: nothing is passed as skipped earlier.
+	local mark = Own.freshPlacing[guide.id] ~= placing and logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
 	if fromTab then
 		Own.logPlaced[guide.id], Own.reworkedOrder[guide.id] = nil, nil
 		added = Own.noteMovedBehind(anchor) or added
@@ -19165,7 +19169,12 @@ end
 -- comes back from the step list (Engine.Goto opens a skipped step). At that
 -- step and after, everything goes, as before. With the quest log not read
 -- yet, nothing is kept.
-function Engine.ResetProgress()
+--
+-- everything (#4111): nothing is kept, so a step skipped long ago comes back
+-- too and the guide starts at the first quest the player can still take. The
+-- saved view and the quests held for the player's answer (Own.lostHere) go
+-- as well.
+function Engine.ResetProgress(everything)
 	if not guide then return end
 	refreshPlayer()
 	local state = ns.CharState()
@@ -19181,9 +19190,14 @@ function Engine.ResetProgress()
 		if type(state[f]) == "table" then state[f][id] = nil end
 	end
 	Own.goneGen = Own.goneGen + 1
+	if everything then
+		for _, f in ipairs({ "pins", "lostQuests" }) do
+			if type(state[f]) == "table" then state[f][id] = nil end
+		end
+	end
 	-- Keys are a step's number ("skipped", "when", "whenPassed") or "step:goal" ("manual",
-	-- an optional goal's skip).
-	local anchor = logReady and anchorStep(nil) or 0
+	-- an optional goal's skip). Nothing is behind anchor 0.
+	local anchor = not everything and logReady and anchorStep(nil) or 0
 	for field, t in pairs(held) do
 		for k, v in pairs(type(t) == "table" and t or NONE) do
 			local s = type(k) == "number" and k or tonumber(tostring(k):match("^(%d+)"))
@@ -19198,6 +19212,7 @@ function Engine.ResetProgress()
 	state.guideDone[id] = nil
 	Own.endOpen[id], Own.lastOpen[id], Own.leftTold[id] = nil, nil, nil
 	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
+	Own.freshPlacing[id] = everything and placing or nil
 	for _, p in pairs(Own.sectionPlans) do
 		p.memo = {}
 		p.memoGen = nil
