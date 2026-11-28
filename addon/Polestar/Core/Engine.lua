@@ -3510,14 +3510,15 @@ local function pickFor(goal)
 	end
 	table.sort(list, better)
 	if here then
-		for k = 1, math.min(Own.PLANNED, #list) do
+		-- No route plans while a route is read: the goals it reads (Own.routePoints) pick by the straight line.
+		for k = 1, Own.routing and 0 or math.min(Own.PLANNED, #list) do
 			local c = list[k]
 			local s = ns.TravelCost(nil, c) -- from where the player stands: flights, the Hearthstone
 			if s then cost[c] = s end
 		end
 		table.sort(list, better)
 		-- A vendor, an inn or a trainer on the guide's way beats a nearer one off it.
-		if Own.ROUTE_PICKED[goal.t] and not goal.byPlace then Own.routeFirst(list, tier) end
+		if Own.ROUTE_PICKED[goal.t] and not goal.byPlace then Own.routeFirst(list, tier, goal) end
 	end
 	p = { list = list, i = #list > 0 and 1 or 0, gen = contextGen, tier = tier }
 	if not Own.routing then picks[goal] = p end -- a pick made while a route is read is not the goal's own
@@ -5732,6 +5733,8 @@ end
 
 -- Guide id -> the `placing` that Reset everything began (#4111): the placing it holds for, no other.
 Own.freshPlacing = {}
+-- Guide id -> the `placing` of a placing that keeps the class training steps open (Own.placeIfMoved).
+Own.keepTraining = {}
 
 -- Skipped earlier (#86). The high-water mark (anchorStep with turnedOnly) is
 -- the furthest step the character has done quest work in. The open accepts
@@ -5919,6 +5922,7 @@ local function place()
 	local addedAll = ns.CharState().added
 	local added = type(addedAll) == "table" and addedAll[guide.id] or nil
 	local fromTab = logReady and Own.logPlaced[guide.id]
+	local keepTraining = placing ~= nil and Own.keepTraining[guide.id] == placing
 	local anchor = anchorStep(added, fromTab)
 	-- After Reset everything (#4111) the placing it began starts the guide at the first quest the player can take: nothing is passed as skipped earlier.
 	local mark = Own.freshPlacing[guide.id] ~= placing and logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
@@ -6054,6 +6058,8 @@ local function place()
 			for g, goal in ipairs(goals) do
 				local t = goal.t
 				local soft = (t ~= "task" and isManual(goal)) or latchable(goal) or isBagCount(goal)
+				-- Re-placed in play (Own.placeIfMoved): quest work done further on is no sign the class was trained.
+				if keepTraining and t == "train" and goal.class then soft = false end
 				-- What an update added holds nothing (Own.passAdded passes it).
 				if open(s, g, goal) and not gated(goal)
 					and not (soft and (behind or now or ((s < lastOut or whole) and travel(t))))
@@ -10594,9 +10600,14 @@ function Own.routePoints()
 	for k = 1, Own.orderSteps(steps, from, Own.ROUTE_STEPS) do
 		local s = steps[k]
 		for g, goal in ipairs(guide.steps[s].goals) do
-			if goalApplies(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
-				pts[#pts + 1] = { map = goal.map, x = goal.x, y = goal.y, f = goal.f, goal = goal }
-				break
+			if goalApplies(goal) and goal ~= Own.routing and not goalDone(s, g, goal) then
+				-- A class training goal has no point of its own: where it is done is the trainer picked for the character (Own.goalSpot).
+				-- Another pick ahead is no place of the route: its place follows from the route (a second vendor does not move the first).
+				local map, x, y, f = Own.goalSpot(goal, true)
+				if map then
+					pts[#pts + 1] = { map = map, x = x, y = y, f = f, goal = goal }
+					break
+				end
 			end
 		end
 	end
@@ -10660,10 +10671,10 @@ end
 
 -- `list` (pickFor's ranking) with its route pick moved to the front. Not while
 -- a route pick is under way: a goal that the route reads asks for its own pick
--- without the route.
-function Own.routeFirst(list, tier)
+-- without the route, and the route leaves out the goal being picked (Own.routing holds it).
+function Own.routeFirst(list, tier, goal)
 	if #list < 2 or Own.routing then return end
-	Own.routing = true
+	Own.routing = goal or true
 	local ok, c = pcall(Own.routePick, list, tier)
 	Own.routing = false
 	if not ok then error(c, 0) end
@@ -16935,6 +16946,15 @@ Own.autoE = {} -- the lines of the path being scored, by the index Plan.x, y and
 Own.autoCool = setmetatable({}, { __mode = "k" }) -- goal -> when the arrow may take its line again
 Own.autoGX, Own.autoGY, Own.autoGG, Own.autoHG, Own.autoM = {}, {}, {}, {}, 0 -- the guide's next stops (where, goal) a held line's scores are measured through (Own.autoGG: this poll's, Own.autoHG: from when it was taken)
 Own.autoChain, Own.autoChainKey = {}, nil -- the world points of the guide's steps after the live one: { continent, x, y }
+-- What the last poll of the arrow that takes objectives weighed and decided, for the routing report (Engine.RoutingState):
+-- n lines (quest, value, score, secs by line), the best path's first line, score, extra seconds and its score
+-- after a later stop, the held line's index, and `why`: what it did, in words, as of `at`. Reused, never rebuilt.
+Own.autoLast = { n = 0, quest = {}, value = {}, score = {}, secs = {} }
+function Own.autoNote(why, took)
+	local last = Own.autoLast
+	last.why, last.at = why, GetTime()
+	return took or false
+end
 
 -- The unfinished objective lines of quest q in the log (at least 1: the line asked about).
 function Own.hereLinesLeft(q)
@@ -17050,8 +17070,8 @@ function Own.hereAutoAim(c, px, py)
 	end
 	local mine = Own.autoGoal
 	if mine and aim ~= mine then mine, Own.autoGoal = nil, nil end -- the player, a row or the guide took the arrow
-	if aim and not mine then return false end
-	if mine and (Own.autoStep ~= current or Own.autoC ~= c) then return Own.hereAutoRelease(false) end
+	if aim and not mine then return Own.autoNote("the arrow is aimed elsewhere (a row, a click or the guide's pick)") end
+	if mine and (Own.autoStep ~= current or Own.autoC ~= c) then return Own.hereAutoRelease(false, "went back to the guide: its step or the continent changed") end
 	local now, m, n, held = GetTime(), 0, 0, nil
 	if mine then
 		m = Own.autoM
@@ -17074,20 +17094,33 @@ function Own.hereAutoAim(c, px, py)
 	if mine and held then
 		local d = Own.autoE[held].d
 		if d and (not Own.autoMinD or d < Own.autoMinD) then Own.autoMinD = d end
-		if d and d > Own.autoMinD + Own.AIM_DEVIATE then return Own.hereAutoRelease(true) end
+		if d and d > Own.autoMinD + Own.AIM_DEVIATE then return Own.hereAutoRelease(true, "went back to the guide: you walked away from the line, it rests") end
 	end
 	Own.hereOwners(Plan, m, n)
 	local limit = tonumber(ns.Get("behavior.whileHereAimSeconds")) or 15
 	local first, score, secs, later = Plan.Best(n, m, px, py, Own.HERE_WINDING / Own.HERE_SPEED, Own.AIM_FLOOR, limit)
+	local last = Own.autoLast
+	last.n, last.m, last.first, last.score0, last.secs0, last.later, last.held, last.limit = n, m, first, score, secs, later, held, limit
+	for i = 1, n do
+		last.quest[i], last.value[i], last.score[i], last.secs[i] = Own.autoE[i].goal.quest, Plan.value[i], Plan.score[i], Plan.secs[i]
+	end
 	if mine then
 		local keep = held and Plan.score[held]
-		if not keep or (keep < Own.AIM_RELEASE and Plan.secs[held] > Own.AIM_FREE) then return Own.hereAutoRelease(false) end
-		return first ~= held and score >= keep * Own.AIM_MARGIN and Own.hereAutoTake(Own.autoE[first], c, m)
+		if not keep or (keep < Own.AIM_RELEASE and Plan.secs[held] > Own.AIM_FREE) then
+			return Own.hereAutoRelease(false, "went back to the guide: the held line no longer scores enough")
+		end
+		if first ~= held and score >= keep * Own.AIM_MARGIN and Own.hereAutoTake(Own.autoE[first], c, m) then
+			return Own.autoNote("moved to another line: its path scores more than the held one's", true)
+		end
+		return Own.autoNote("holding the line it took")
 	end
-	if not first or not (score >= Own.AIM_TRIGGER or secs <= Own.AIM_FREE) then return false end
+	if n == 0 then return Own.autoNote("no objective lines to weigh") end
+	if not first then return Own.autoNote("no path of lines fits the seconds limit") end
+	if not (score >= Own.AIM_TRIGGER or secs <= Own.AIM_FREE) then return Own.autoNote("the best path scores under the trigger") end
 	-- Cheaper on the way later (after one of the guide's next stops): wait for it, unless this one is on the way anyway.
-	if later and later > score * Own.AIM_MARGIN and secs > Own.AIM_FREE then return false end
-	return Own.hereAutoTake(Own.autoE[first], c, m)
+	if later and later > score * Own.AIM_MARGIN and secs > Own.AIM_FREE then return Own.autoNote("waiting: the path scores more after one of the guide's next stops") end
+	local took = Own.hereAutoTake(Own.autoE[first], c, m)
+	return Own.autoNote(took and "took the first line of the best path" or "could not aim at the first line", took)
 end
 
 -- Line e becomes the arrow's aim by Own.hereAutoAim, with the m next stops of the guide in ns.StopPlanner
@@ -17102,11 +17135,11 @@ end
 
 -- The arrow goes back to the guide: the held line is let go; with `cool` it rests Own.AIM_COOL
 -- seconds before the arrow may take it again. True (the caller asks for an evaluation).
-function Own.hereAutoRelease(cool)
+function Own.hereAutoRelease(cool, why)
 	local goal = Own.autoGoal
 	if cool and goal then Own.autoCool[goal] = GetTime() + Own.AIM_COOL end
 	Own.autoGoal, Own.autoMinD, aim = nil, nil, nil
-	return true
+	return Own.autoNote(why or "went back to the guide", true)
 end
 
 -- Forget what the arrow that takes objectives holds or kept: the held line, its rest, the values
@@ -17124,6 +17157,7 @@ end
 -- Returns nil with no guide, else a line to tell the player.
 function Engine.Recalibrate()
 	if not guide then return nil end
+	Own.recalAt, Own.recalN = GetTime(), (Own.recalN or 0) + 1
 	Own.autoReset()
 	refreshPlayer()
 	aim = nil
@@ -17233,9 +17267,11 @@ function Own.orderWork(kills, ends)
 end
 
 -- Where goal is done: its own point, else the candidate picked for the character (a smart goal such
--- as `train class` has candidates and no point). -> map, x, y, f | nil
-function Own.goalSpot(goal)
+-- as `train class` has candidates and no point). With `classOnly`, only a class training goal counts
+-- so: another pick (a vendor) is no place of its own for the route to read. -> map, x, y, f | nil
+function Own.goalSpot(goal, classOnly)
 	if goal.map and goal.x and goal.y then return goal.map, goal.x, goal.y, goal.f end
+	if classOnly and not (goal.t == "train" and goal.class) then return nil end
 	local c = goal.candidates and chosen(goal)
 	if c and c.map and c.x and c.y then return c.map, c.x, c.y, c.f end
 	return nil
@@ -17385,7 +17421,10 @@ function Own.orderTick(c, px, py)
 	-- Only a leveling guide moves: a class, dungeon or attunement guide is done in its own order (Own.everyStep).
 	local on = Order and guide and computed and c and ns.Get("behavior.stepReorder") and not Own.everyStep(guide)
 	if not on then
-		if st then st.rest = nil end
+		if st then
+			st.rest = nil
+			st.why = ns.Get("behavior.stepReorder") and "this guide keeps its own order (not a leveling guide)" or "off"
+		end
 		return st and st.pin ~= nil and Own.orderRelease(false) or false
 	end
 	-- The step it showed was done and the pin followed forward (evaluate): not the player's pin. It goes
@@ -17400,12 +17439,20 @@ function Own.orderTick(c, px, py)
 	end
 	if pin and pin ~= st.pin then
 		st.pin, st.plan = nil, nil
+		st.why = "a step you picked (Next, Prev or Goto) is on screen"
 		return moved
 	end
-	if placing or Own.hereBlocked() or (UnitAffectingCombat and UnitAffectingCombat("player")) then return moved end
+	local blocked = placing and "the guide is being placed" or Own.hereBlocked()
+	if blocked or (UnitAffectingCombat and UnitAffectingCombat("player")) then
+		st.why = blocked or "in combat"
+		return moved
+	end
 	local n = Own.orderFill(Order, c)
 	local win = st.win
-	if n < 2 then return (st.pin ~= nil and Own.orderRelease(false)) or moved end
+	if n < 2 then
+		st.why = "fewer than two steps can move"
+		return (st.pin ~= nil and Own.orderRelease(false)) or moved
+	end
 	Order.keep = Own.orderKeep(Order, st, win, n)
 	Order.Best(n, px, py)
 	local per = Order.per
@@ -17417,28 +17464,63 @@ function Own.orderTick(c, px, py)
 	for i = 1, n do
 		if win[i].s == st.pin then held = i end
 	end
+	-- What this poll measured, for the routing report (Engine.RoutingState): the window's steps in the best order,
+	-- the walking of the best order and of the guide's own, in yards (with the XP order, the seconds an XP point
+	-- waits, as yards: `xp` and `per` turn them back).
+	local last = st.last
+	if not last then
+		last = { order = {} }
+		st.last = last
+	end
+	last.at, last.n, last.base, last.cost, last.saved = GetTime(), n, Order.base, Order.cost, (Order.base - Order.cost) * per
+	last.xp, last.per = Order.mode == "xp", per
+	for k = 1, n do last.order[k] = win[Order.order[k]].s end
 	if st.pin then
-		if not held then return Own.orderRelease(false) or moved end
+		if not held then
+			st.why = "went back to the live step: the shown step left the window"
+			return Own.orderRelease(false) or moved
+		end
 		-- Walking away from it, farther than the player got: handed back, and it rests.
 		local d = Own.orderFar(Order, held, px, py)
 		if not st.min or d < st.min then st.min = d end
-		if d > st.min + Own.AIM_DEVIATE then return Own.orderRelease(true) or moved end
+		if d > st.min + Own.AIM_DEVIATE then
+			st.why = "went back to the live step: you walked away from the shown step, it rests"
+			return Own.orderRelease(true) or moved
+		end
 		local mine = Order.first[held]
-		if best == held and saved >= Own.ORDER_RELEASE then return moved end
+		if best == held and saved >= Own.ORDER_RELEASE then
+			st.why = "showing the step that walks least"
+			return moved
+		end
 		-- Another first step only for one that saves ORDER_SWITCH seconds more than this one does.
 		if not mine or (mine - Order.cost) * per >= Own.ORDER_SWITCH or (Order.base - mine) * per < Own.ORDER_RELEASE then
 			if best ~= 1 and saved >= Own.ORDER_TAKE then
 				local plan = {}
 				for k = 1, n do plan[k] = win[Order.order[k]].s end
+				st.why = "moved to another first step: it saves more than the shown one"
 				return Own.orderTake(win[best].s, plan, Own.orderFar(Order, best, px, py))
 			end
+			st.why = "went back to the live step: the guide's order is as good"
 			return Own.orderRelease(false) or moved
 		end
+		st.why = "keeping the shown step: another first step saves too little more"
 		return moved
 	end
-	if best == 1 or saved < Own.ORDER_TAKE or GetTime() < st.cool or aim then return moved end
+	if best == 1 or saved < Own.ORDER_TAKE then
+		st.why = best == 1 and "the guide's own order walks least" or "the best order saves too little"
+		return moved
+	end
+	if GetTime() < st.cool then
+		st.why = "resting after a hand-back"
+		return moved
+	end
+	if aim then
+		st.why = "the arrow is aimed at a goal of its own"
+		return moved
+	end
 	local plan = {}
 	for k = 1, n do plan[k] = win[Order.order[k]].s end
+	st.why = "showing the step that walks least"
 	return Own.orderTake(win[best].s, plan, Own.orderFar(Order, best, px, py))
 end
 
@@ -17570,6 +17652,62 @@ function Engine.WhileHereState()
 		end
 	end
 	return st
+end
+
+-- What the routing report says of the arrow's and the window's own choices (UI/RoutingReport.lua), as of now:
+--   reorder  { on, why, shown (the step it put on screen, or nil), live (the guide's own step), plan (the steps in the
+--            order it chose, while one is shown), rest (seconds before it takes a step again), take, switch, release
+--            (its thresholds in seconds), last = { ago (seconds), n, order (steps, best first), base, cost (yards, the
+--            guide's order and the best), saved (seconds) }, window = { { step, ready (every open goal can be done
+--            now), quests (how many) }, ... } }
+--   aim      { on, limit (seconds), trigger, release, margin, free (the thresholds), held = { quest, step } or nil,
+--            why, ago, last = { n, first, score, secs, later, held, lines = { { quest, value (percent of a level),
+--            score (per minute of extra walking), secs }, ... } } }
+--   arrowFrom     "auto" (an objective the arrow took), "picked" (a row, a click or a waypoint key) or "guide"
+--   recalibrated  { count, ago } or nil
+-- Nothing is computed here: the numbers are what the last polls measured.
+function Engine.RoutingState()
+	local now = GetTime()
+	local out = {}
+	local st = guide and Own.orderOf()
+	local r = { on = ns.Get("behavior.stepReorder") == true, why = st and st.why, live = computed,
+		take = Own.ORDER_TAKE, switch = Own.ORDER_SWITCH, release = Own.ORDER_RELEASE }
+	if st then
+		r.shown = st.pin
+		r.rest = st.cool and st.cool > now and math.floor(st.cool - now + 0.5) or 0
+		if st.plan and st.pin then
+			r.plan = {}
+			for k = 1, #st.plan do r.plan[k] = st.plan[k] end
+		end
+		local last = st.last
+		if last then
+			r.last = { ago = math.floor(now - last.at + 0.5), n = last.n, base = last.base, cost = last.cost, saved = last.saved, xp = last.xp, per = last.per, order = {} }
+			for k = 1, last.n do r.last.order[k] = last.order[k] end
+		end
+		r.window = {}
+		for i = 1, st.win.n or 0 do
+			local w, quests = st.win[i], 0
+			for _ in pairs(w.quests) do quests = quests + 1 end
+			r.window[i] = { step = w.s, ready = w.ready and true or false, quests = quests }
+		end
+	end
+	out.reorder = r
+	local last = Own.autoLast
+	local a = { on = ns.Get("behavior.whileHereAim") and true or false, limit = tonumber(ns.Get("behavior.whileHereAimSeconds")) or 15,
+		trigger = Own.AIM_TRIGGER, release = Own.AIM_RELEASE, margin = Own.AIM_MARGIN, free = Own.AIM_FREE, why = last.why }
+	if Own.autoGoal then a.held = { quest = Own.autoGoal.quest, step = Own.autoStep } end
+	if last.at then
+		a.ago = math.floor(now - last.at + 0.5)
+		a.last = { n = last.n, first = last.first, score = last.score0, secs = last.secs0, later = last.later, held = last.held, lines = {} }
+		for i = 1, last.n do
+			a.last.lines[i] = { quest = last.quest[i], value = last.value[i], score = last.score[i], secs = last.secs[i] }
+		end
+	end
+	out.aim = a
+	-- Whose choice the arrow follows now.
+	out.arrowFrom = (Own.autoGoal and aim == Own.autoGoal) and "auto" or aim and "picked" or "guide"
+	if Own.recalAt then out.recalibrated = { count = Own.recalN, ago = math.floor(now - Own.recalAt + 0.5) } end
+	return out
 end
 
 -- One arrival poll's work for the line, from world position c, px, py (tests).
@@ -19267,9 +19405,10 @@ end
 
 -- Works the loaded guide out again from the quest log, as when it was just
 -- opened (placement runs again in the evaluation).
-function Own.placeAgain()
+function Own.placeAgain(keepTraining)
 	refreshPlayer()
 	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
+	Own.keepTraining[guide.id] = keepTraining and placing or nil
 	evaluate()
 end
 
@@ -19330,7 +19469,7 @@ end
 -- player. An undone placement stays undone (place). True if it evaluated.
 function Own.placeIfMoved()
 	if not Own.placementStale() then return false end
-	Own.placeAgain()
+	Own.placeAgain(true)
 	return true
 end
 ns.RegisterEvent("ZONE_CHANGED_NEW_AREA", Own.placeIfMoved)

@@ -1906,7 +1906,7 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   candidate of its best tier with the least detour on the guide's route (`Own.routeFirst`), the pick that the
   training banner makes (below): a nearer candidate off the way loses, a candidate within 15 seconds of a nearer
   one loses to it, and a goal with no route ahead keeps the nearest. The route is the one the banner reads
-  (`Own.routePoints`: the first open place of each of the next 8 applicable steps). A goal that the route reads
+  (`Own.routePoints`: the first open place of each of the next 8 applicable steps; a class training goal's place is the trainer picked for the character, `Own.goalSpot`; another pick ahead is no place). A goal that the route reads
   picks without it (`Own.routing`) and keeps no pick. The reminder's own pseudo goal (`byPlace`) ranks by place
   alone, as `Nav/Nearby.lua` lists it. The `forge-judge` replay has the same rule (`route_first`). It re-picks on step start, zone change and landing, never per
   frame. The goal view then carries the chosen `npc`, `npcName`, `map`, `x`, `y`,
@@ -3268,7 +3268,7 @@ the same person never splits that person's group.
     other guide that is no leveling guide (`Own.everyStep`) is done in its
     own order. The state is kept for each tab's guide (`Own.orderOf`), so a
     class guide opened in a second tab never reads the first one's.
-  - *Which steps.* From the live step, at most `StepOrder.MAX` (5) open steps
+  - *Which steps.* From the live step, at most `StepOrder.MAX` (8) open steps
     in a row that can move (`Own.orderPoints`): no `when` or `skipto`, no
     group or dungeon question pending, no step the player cannot look at, and
     only the goals `Own.ORDER_KINDS` lists (accept, hand-in, kill, collect,
@@ -3283,12 +3283,29 @@ the same person never splits that person's group.
     quest not in the log has no accept in the step, or, with fewer free log
     slots than its accepts, when the earlier step hands in a quest.
   - *The order.* `StepOrder.Best` tries every order that keeps those needs
-    (at most 120) and counts the yards from the player to the first step's
-    entry, from each step's last place to the next one's first, and on to the
-    guide's step after the window (`Own.goalSpot`: a goal's own point, else the
-    candidate picked for the character, so a class trainer step counts). The guide's own order wins every tie.
+    and counts the yards from the player to the first step's entry, from each
+    step's last place to the next one's first, and on to the guide's step
+    after the window (`Own.goalSpot`: a goal's own point, else the candidate
+    picked for the character, so a class trainer step counts). The search is
+    exact over the sets of steps done (2^n sets, not n! orders). The guide's
+    own order wins every tie.
+  - *The XP order* (`behavior.stepReorderXp`, off by default, with the step
+    reorder on). The score is the seconds an XP point waits on average, XP
+    weighted: the sum over steps of the step's XP times the time it is done
+    at, over the XP in all (`Own.orderPoints` gives each step its hand-in XP,
+    `Own.questXp`, and its work seconds, `Own.orderWork`). The time of a step
+    is the walk to it, the walk inside it and its work. The work is the model
+    of the skip-slow-quests setting: `List.KILL_MINUTES` for a kill and
+    `List.BASE_MINUTES` for each end of a quest, written to
+    `Core/SlowQuestList.lua` from `data/codex/slow-quests.json`. The order is
+    taken only when it takes no longer in all than the guide's order and than
+    the order the player already goes by (`Own.orderKeep`, the plan taken last
+    while it was an XP plan). When the guide's order takes longer than that
+    plan, the best of the orders that take no longer is shown whatever it
+    saves (`StepOrder.forced`). With no XP in the window the walk decides. A
+    kill's XP is not counted, only the XP of a hand-in.
   - *When it changes.* The best order is taken when it saves
-    `Own.ORDER_TAKE` (20) seconds of walking over the guide's order
+    `Own.ORDER_TAKE` (20) seconds (of walking, or of the wait for XP) over the guide's order
     (`Own.HERE_WINDING` / `Own.HERE_SPEED` seconds a yard), held while it
     saves `Own.ORDER_RELEASE` (5), and another first step replaces it only
     when that order is `Own.ORDER_SWITCH` (30) seconds better. The player
@@ -3868,7 +3885,9 @@ holds at its opening, see "Not yet available"):
   (`Own.placedStamp[guideId]` against `Own.logStamp`). `Engine.SelectTab` calls it for the tab brought to the front,
   and `ZONE_CHANGED_NEW_AREA` for the loaded guide. It uses the same `place`, so
   it marks only what a reload marks, keeps the player's own marks, stays quiet
-  when nothing is marked and respects an undone placement. A sub-zone change
+  when nothing is marked and respects an undone placement. In that placing
+  an open `train class` goal holds (`Own.keepTraining`), as quest work done
+  further on is no sign the class was trained. A sub-zone change
   (`ZONE_CHANGED`) does not place. Jumping to the zone the player stands in
   (#1249) is a different change and is not part of it.
 - Before the start (with no start: before the last quest progress), a step

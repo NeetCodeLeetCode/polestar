@@ -86,6 +86,9 @@ local function where(map, x, y, f)
 	return ("map %d @%.2f,%.2f%s"):format(map, x, y, f == "e" and "" or " live")
 end
 
+-- The helpers the routing report (UI/RoutingReport.lua) writes its lines with.
+R.Plain, R.Cut, R.Where, R.SEP = plain, cut, where, SEP
+
 local MARK = { done = "[x]", skipped = "[-]", na = "[n/a]" }
 -- The window's current goal, and the goal the arrow leads to when the player
 -- picked another one (a row click, the waypoint keys: #1385).

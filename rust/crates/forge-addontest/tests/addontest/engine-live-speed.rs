@@ -262,9 +262,8 @@ fn xp_scene(seed: u64, zone: usize) -> (String, String) {
 	let mut rng = Rng(seed * 7919 + zone as u64 * 104729 + 31);
 	let (sx, sy) = (rng.between(l, r), rng.between(t, b));
 	// (kill place, giver place, XP) for each quest, the kills nearest first from the start.
-	let mut quests: Vec<((f64, f64), (f64, f64), f64)> = (0..HAND_INS)
-		.map(|_| ((rng.between(l, r), rng.between(t, b)), (rng.between(l, r), rng.between(t, b)), (rng.between(200.0, 4000.0)).round()))
-		.collect();
+	let mut quests: Vec<((f64, f64), (f64, f64), f64)> =
+		(0..HAND_INS).map(|_| ((rng.between(l, r), rng.between(t, b)), (rng.between(l, r), rng.between(t, b)), (rng.between(200.0, 4000.0)).round())).collect();
 	let dist = |p: (f64, f64)| ((p.0 - sx) * 30.0).powi(2) + ((p.1 - sy) * 20.0).powi(2);
 	quests.sort_by(|a, c| dist(a.0).partial_cmp(&dist(c.0)).unwrap());
 	let (mut steps, mut quest, mut hand, mut log, mut xp) = (String::new(), String::new(), String::new(), String::new(), String::new());
@@ -281,7 +280,9 @@ fn xp_scene(seed: u64, zone: usize) -> (String, String) {
 		log += &format!("w.onQuest({q}, {{ {{ required = 8, fulfilled = 0 }} }}, \"Quest {q}\")\n");
 		xp += &format!("[{q}] = {pays}, ");
 	}
-	let guide = format!("Polestar.RegisterGuide({{ id = \"test/speed\", pack = \"test\", title = \"Speed\", minLevel = 1, maxLevel = 10, steps = {{\n{steps}}} }})\nQUEST = {{ {quest} }}\nHAND = {{ {hand} }}\n");
+	let guide = format!(
+		"Polestar.RegisterGuide({{ id = \"test/speed\", pack = \"test\", title = \"Speed\", minLevel = 1, maxLevel = 10, steps = {{\n{steps}}} }})\nQUEST = {{ {quest} }}\nHAND = {{ {hand} }}\n"
+	);
 	let setup = format!("{log}w.moveTo(1429, {sx:.1}, {sy:.1})\nXP = {{ {xp} }}; GetQuestLogRewardXP = function(id) return XP[id] end\n");
 	(guide, setup)
 }
@@ -313,7 +314,17 @@ fn play_xp(seeds: std::ops::Range<u64>, zones: std::ops::Range<usize>, name: &st
 			}
 			waits.push((xp[3] - off[3]) / off[3] * 100.0);
 			totals.push((xp[1] - off[1]) / off[1] * 100.0);
-			rows.push(format!("  zone {} seed {:>3}: guide {:>5.0} s wait, {:>5.0} s in all; walk order {:>5.0} / {:>5.0}; XP order {:>5.0} / {:>5.0}", zone + 1, seed, off[3], off[1], walk[3], walk[1], xp[3], xp[1]));
+			rows.push(format!(
+				"  zone {} seed {:>3}: guide {:>5.0} s wait, {:>5.0} s in all; walk order {:>5.0} / {:>5.0}; XP order {:>5.0} / {:>5.0}",
+				zone + 1,
+				seed,
+				off[3],
+				off[1],
+				walk[3],
+				walk[1],
+				xp[3],
+				xp[1]
+			));
 		}
 	}
 	waits.sort_by(|a, b| a.partial_cmp(b).unwrap());
