@@ -263,7 +263,13 @@ local function arrowLine()
 	local own = N.IsOverride and N.IsOverride()
 	-- Held (the way back to your corpse or a Spirit Healer, Nav.Hold): its label says whose it is.
 	if own or (N.IsHeld and N.IsHeld()) then
-		if own then line = line .. SEP .. L["your own waypoint"] end
+		-- A trip (a Next stop, a trainer, a dungeon) is no waypoint of the player's own: the trip says what it is.
+		local trip = own and N.Trip and N.Trip()
+		if trip then
+			line = line .. SEP .. ("a trip: %s to %s"):format(plain(tostring(trip.label or "?")), plain(tostring(trip.name or "?")))
+		elseif own then
+			line = line .. SEP .. L["your own waypoint"]
+		end
 		local pos = where(t.map, t.x, t.y, t.f)
 		if pos then line = line .. (own and " " or SEP) .. pos end
 	end

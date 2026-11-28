@@ -57,11 +57,13 @@ test('/polestar routing opens the copy window on the report, selected, with the 
 	assert.equal(out.width, 520);
 	const lines = out.text.split('\n');
 	assert.equal(lines[0], 'Polestar routing report');
-	assert.equal(lines[1], 'Step reorder: off', 'off by default');
-	assert.equal(lines[2], 'Take nearby objectives: off');
-	assert.equal(lines[3], 'Arrow follows: the guide\'s own next goal');
+	// The sections of the arrow, Next stop and the pace come before and after these lines (routing-report-detail.test.js).
+	const base = lines.indexOf('Step reorder: off');
+	assert.ok(base >= 1, 'off by default');
+	assert.equal(lines[base + 1], 'Take nearby objectives: off');
+	assert.equal(lines[base + 2], 'Arrow follows: the guide\'s own next goal');
 	const settings = lines.findIndex((l) => l.startsWith('Routing settings: '));
-	assert.equal(settings, 4);
+	assert.ok(settings > base + 2);
 	assert.ok(lines[settings + 1].startsWith('  behavior.'), 'the settings wrap into lines of about 100 characters');
 	assert.ok(lines.slice(settings, settings + 3).every((l) => l.length <= 101), 'no line runs past the box');
 	for (const s of ['behavior.stepReorder=off', 'behavior.whileHereAim=off', 'behavior.whileHereRadius=180', 'nav.routeStyle=balanced']) {
@@ -132,18 +134,21 @@ test('with the reorder and the objective-taking arrow on, the report says what e
 	assert.ok(out[0].window <= 720, `the window fits the screen (${out[0].window})`);
 	assert.deepEqual(out[1], { plain: true, well: false, width: 360, text: 'https://discord.gg/polestar' }, 'the copy window is itself again for the next text');
 	const lines = out[0].text.split('\n');
-	assert.equal(lines[1], 'Step reorder: on \u00b7 live step 3 \u00b7 on screen step 5 \u00b7 showing the step that walks least');
-	assert.equal(lines[2], "Reorder walk: best order 5 3 4 saves 40.0 s \u00b7 520 yd against the guide's 800 yd \u00b7 measured 2 s ago");
-	assert.equal(lines[3], 'Reorder needs: a saving of 20 s to show a step, 30 s more to switch, under 5 s to go back');
-	assert.equal(lines[4], 'Reorder plan: 5 3 4');
-	assert.equal(lines[5], 'Reorder window: step 3, 1 quest; step 4 (waits for a hand-in or a pick-up), 2 quests; step 5, 1 quest');
-	assert.equal(lines[6], 'Take nearby objectives: on \u00b7 up to 15 s of extra walking \u00b7 holding the line of quest 783 \u00b7 holding the line it took (1 s ago)');
-	assert.equal(lines[7], 'Arrow follows: an objective it took by itself');
-	assert.equal(lines[8], 'Objective 1: quest 7 \u00b7 worth 5.0% of a level \u00b7 3.2 a minute, 14.0 s extra');
-	assert.equal(lines[9], 'Objective 2: quest 783 \u00b7 worth 8.5% of a level \u00b7 12.3 a minute, 9.0 s extra \u00b7 held');
-	assert.equal(lines[10], 'Best path: starts with objective 2 \u00b7 scores 12.3 a minute, 9.0 s extra \u00b7 4.2 after a later stop \u00b7 takes at 3.0, lets go under 1.5, a swap needs 1.3 times as much');
-	assert.equal(lines[11], 'Recalibrate: pressed 2 times this session \u00b7 last 40 s ago');
-	assert.ok(lines[12].startsWith('Routing settings: '), lines[12]);
+	const at = lines.findIndex((l) => l.startsWith('Step reorder: on'));
+	assert.ok(at >= 1);
+	const rest = lines.slice(at - 1);
+	assert.equal(rest[1], 'Step reorder: on \u00b7 live step 3 \u00b7 on screen step 5 \u00b7 showing the step that walks least');
+	assert.equal(rest[2], "Reorder walk: best order 5 3 4 saves 40.0 s \u00b7 520 yd against the guide's 800 yd \u00b7 measured 2 s ago");
+	assert.equal(rest[3], 'Reorder needs: a saving of 20 s to show a step, 30 s more to switch, under 5 s to go back');
+	assert.equal(rest[4], 'Reorder plan: 5 3 4');
+	assert.equal(rest[5], 'Reorder window: step 3, 1 quest; step 4 (waits for a hand-in or a pick-up), 2 quests; step 5, 1 quest');
+	assert.equal(rest[6], 'Take nearby objectives: on \u00b7 up to 15 s of extra walking \u00b7 holding the line of quest 783 \u00b7 holding the line it took (1 s ago)');
+	assert.equal(rest[7], 'Arrow follows: an objective it took by itself');
+	assert.equal(rest[8], 'Objective 1: quest 7 \u00b7 worth 5.0% of a level \u00b7 3.2 a minute, 14.0 s extra \u00b7 lost: the best path through objective 2 scores 12.3 a minute against 3.2');
+	assert.equal(rest[9], 'Objective 2: quest 783 \u00b7 worth 8.5% of a level \u00b7 12.3 a minute, 9.0 s extra \u00b7 held \u00b7 starts the best path');
+	assert.equal(rest[10], 'Best path: starts with objective 2 \u00b7 scores 12.3 a minute, 9.0 s extra \u00b7 4.2 after a later stop \u00b7 takes at 3.0, lets go under 1.5, a swap needs 1.3 times as much');
+	assert.equal(rest[11], 'Recalibrate: pressed 2 times this session \u00b7 last 40 s ago');
+	assert.ok(rest.some((l) => l.startsWith('Routing settings: ')), 'the settings follow');
 	assert.ok(out[0].text.includes('behavior.stepReorder=on') && out[0].text.includes('behavior.whileHereAim=on'));
 });
 

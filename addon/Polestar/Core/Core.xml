@@ -19,6 +19,7 @@
 	<Script file="StopPlanner.lua"/>
 	<Script file="NextStop.lua"/>
 	<Script file="NextStopPlaces.lua"/>
+	<Script file="NextStopLog.lua"/>
 	<Script file="RouteAdvice.lua"/>
 	<Script file="StepOrder.lua"/>
 	<Script file="Engine.lua"/>

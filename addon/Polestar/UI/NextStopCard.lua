@@ -31,6 +31,14 @@ local told = {} -- "level:place" -> true: the places already shown
 -- Forget the places told (a new session of the card; the tests).
 function NSC.Reset() told = {} end
 
+-- The places told at this level, "level:place" keys (the routing report).
+function NSC.ToldKeys()
+	local out = {}
+	for key in pairs(told) do out[#out + 1] = key end
+	table.sort(out)
+	return out
+end
+
 local function CT() return UI.ClassToast end
 
 local function duration(seconds)
@@ -81,13 +89,12 @@ function NSC.Enabled()
 	return ns.Get("behavior.nextStop") == true and FX ~= nil and FX.On() and E ~= nil and E.IsLeveling ~= nil and E.IsLeveling() == true
 end
 
--- The guide's own arrow is near: its work is here.
-local function guideHasWork()
+-- Seconds to the guide's own arrow, nil without one.
+local function guideSecs()
 	local E = ns.Engine
 	local wp = E and E.GetWaypoint and E.GetWaypoint()
-	if not (wp and wp.map and wp.x and wp.y) then return false end
-	local secs = ns.TravelCost and ns.TravelCost(nil, { map = wp.map, x = wp.x, y = wp.y, f = wp.f })
-	return secs ~= nil and secs < NSC.NEAR_SECS
+	if not (wp and wp.map and wp.x and wp.y) then return nil end
+	return ns.TravelCost and ns.TravelCost(nil, { map = wp.map, x = wp.x, y = wp.y, f = wp.f })
 end
 
 local function hideOurs()
@@ -95,25 +102,42 @@ local function hideOurs()
 	if T and T.current and T.current.kind == NSC.KIND then T.Hide() end
 end
 
+-- Writes what a look saw and decided to the log (Core/NextStopLog.lua), for the routing report.
+local function note(why, ctx, shown)
+	local Log = ns.NextStopLog
+	if Log then Log.Look(why, ctx, shown) end
+end
+
 function NSC.Look()
-	if not NSC.Enabled() then return hideOurs() end
+	if not NSC.Enabled() then note("off") return hideOurs() end
 	local T = CT()
-	if not (T and T.ShowCard) or ns.Hidden() or InCombatLockdown() then return end
-	if guideHasWork() then return hideOurs() end
+	if not (T and T.ShowCard) or ns.Hidden() or InCombatLockdown() then return note("waiting: Polestar is hidden or you are in combat") end
+	-- The guide's own arrow is near: its work is here.
+	local secs = guideSecs()
+	local ctx = { guideSecs = secs }
+	if secs ~= nil and secs < NSC.NEAR_SECS then note("no card: the guide has work here", ctx) return hideOurs() end
 	local Places, NS = ns.NextStop.Places, ns.NextStop
-	if not Places.Ready() then return Places.Scan(NSC.Look) end
+	if not Places.Ready() then note("scanning the Codex for places", ctx) return Places.Scan(NSC.Look) end
 	local places, here = Places.Build()
-	if not places then return end
+	if not places then return note("no places built", ctx) end
 	local p = ns.Lookup.PlayerInfo()
-	local r = NS.Rank({ level = p.level, hardcore = ns.FastestXP.Hardcore(), group = GetNumGroupMembers and GetNumGroupMembers() or 1,
-		dungeons = ns.Get("behavior.dungeons"), here = here }, places)
+	local state = { level = p.level, hardcore = ns.FastestXP.Hardcore(), group = GetNumGroupMembers and GetNumGroupMembers() or 1,
+		dungeons = ns.Get("behavior.dungeons"), here = here }
+	local r = NS.Rank(state, places)
+	ctx.level, ctx.hardcore, ctx.group, ctx.dungeons, ctx.here, ctx.places, ctx.ranking = state.level, state.hardcore, state.group, state.dungeons, here, places, r
 	local top = r.top
-	if not top or top.reason == NS.STAY then return hideOurs() end
+	if not top or top.reason == NS.STAY then note("no card: staying here pays the most", ctx) return hideOurs() end
 	local key = format("%d:%s", p.level, tostring(top.place.id))
-	if told[key] then return end
+	ctx.key, ctx.told = key, told[key] == true
+	if told[key] then return note("no card: this place was shown at this level", ctx) end
 	local cur = T.current
-	if cur and cur.kind ~= NSC.KIND then return end
-	if T.ShowCard(NSC.Model(top)) then told[key] = true end
+	if cur and cur.kind ~= NSC.KIND then return note("no card: another card is showing", ctx) end
+	if T.ShowCard(NSC.Model(top)) then
+		told[key] = true
+		note("card shown", ctx, true)
+	else
+		note("the card was refused", ctx)
+	end
 end
 
 -- The next look: on a level up (the scan is for a level), a Recalibrate, a new zone and every NSC.EVERY seconds.

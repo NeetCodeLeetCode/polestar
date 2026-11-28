@@ -36,27 +36,52 @@ function RA.Limit(logCount)
 	return RA.LIMIT
 end
 
--- Whether entry e may be told at all.
-local function quiet(e)
-	return e.hold ~= nil or e.kept == true or e.seconds == nil
+-- The rules that keep an entry from drawing advice, each as a reason; nil when none applies. The judge and the routing
+-- report (RA.Why) both read them here.
+local function heldWhy(e)
+	if e.hold ~= nil then return "held: " .. tostring(e.hold) end
+	if e.kept == true then return "you chose Keep it" end
+	return nil
+end
+
+local function noDetourWhy(e)
+	if e.seconds == nil then return "no detour measured" end
+	return nil
+end
+
+-- A finished quest is handed in, never abandoned; a quest mostly done or just taken is left alone.
+local function progressWhy(e)
+	if e.ready then return "finished: it is handed in, never abandoned" end
+	if (e.progress or 0) > RA.PROGRESS then return "more than half done" end
+	if (e.age or math.huge) < RA.MIN_AGE then return "taken less than " .. RA.MIN_AGE .. " s ago" end
+	return nil
+end
+
+local function whyNot(e, limit)
+	if e.kind == "off" then
+		return heldWhy(e) or noDetourWhy(e) or progressWhy(e) or (e.seconds <= limit and "its detour is within the limit" or nil)
+	elseif e.kind == "missed" then
+		return heldWhy(e) or noDetourWhy(e) or (e.seconds > limit and e.needed and "a later accept of the guide needs it" or nil)
+	elseif e.kind == "listed" then
+		return heldWhy(e) or progressWhy(e)
+	end
+	return nil
 end
 
 local function judgeOne(e, limit)
-	if e.kind == "off" then
-		-- A finished quest is handed in, never abandoned: it is no advice here.
-		if quiet(e) or e.ready or (e.progress or 0) > RA.PROGRESS or (e.age or math.huge) < RA.MIN_AGE then return nil end
-		if e.seconds > limit then return { verdict = RA.ABANDON, entry = e } end
-	elseif e.kind == "missed" then
-		if quiet(e) then return nil end
+	if whyNot(e, limit) then return nil end
+	if e.kind == "off" then return { verdict = RA.ABANDON, entry = e } end
+	if e.kind == "listed" then return { verdict = RA.LISTED, entry = e } end
+	if e.kind == "missed" then
 		if e.seconds <= limit then return { verdict = RA.TAKE, entry = e } end
-		-- A quest a later accept needs is never told to be left.
-		if e.needed then return nil end
 		return { verdict = RA.LEAVE, entry = e }
-	elseif e.kind == "listed" then
-		if e.hold ~= nil or e.kept == true or e.ready or (e.progress or 0) > RA.PROGRESS or (e.age or math.huge) < RA.MIN_AGE then return nil end
-		return { verdict = RA.LISTED, entry = e }
 	end
 	return nil
+end
+
+-- The reason entry e draws no advice at this log size, or nil when it does (the routing report).
+function RA.Why(e, logCount)
+	return whyNot(e, RA.Limit(logCount))
 end
 
 -- Abandon first (the dearest detour first), then the list, then a pickup to take (the nearest first), then one to leave.

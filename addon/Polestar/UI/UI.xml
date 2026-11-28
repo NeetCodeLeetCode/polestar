@@ -53,7 +53,11 @@
 	<Script file="GearScales.lua"/>
 	<Script file="GearAdjust.lua"/>
 	<Script file="Report.lua"/>
+	<Script file="RoutingReportFormat.lua"/>
 	<Script file="RoutingReport.lua"/>
+	<Script file="RoutingReportArrow.lua"/>
+	<Script file="RoutingReportNextStop.lua"/>
+	<Script file="RoutingReportPace.lua"/>
 	<Script file="Packs.lua"/>
 	<Script file="Import.lua"/>
 	<Script file="Thanks.lua"/>
