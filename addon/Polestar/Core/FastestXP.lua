@@ -41,6 +41,7 @@ FX.LEVERS = {
 	{ key = "behavior.whileHereAim", value = true, group = "aim", label = L["Take nearby objectives"], hardcore = "leave" },
 	{ key = "behavior.whileHereAimSeconds", value = 15, group = "aim", label = L["Objectives: how far out of your way"], hardcore = "leave" },
 	{ key = "behavior.stepReorder", value = true, group = "reorder", label = L["Reorder the next steps"] },
+	{ key = "behavior.stepReorderXp", value = true, group = "reorderXp", label = L["Order the next steps by XP"] },
 	{ key = "behavior.autoAccept", value = true, group = "automation", label = L["Auto-accept"] },
 	{ key = "behavior.autoTurnin", value = true, group = "automation", label = L["Auto turn-in"] },
 	{ key = "behavior.skipGrey", value = true, group = "skips", label = L["Skip grey quests"] },
