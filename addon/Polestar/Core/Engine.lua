@@ -9927,6 +9927,7 @@ function Own.arriveStep(s, c, px, py)
 			end
 			if here then
 				arrived[goal] = true
+				Own.arriveStamp = (Own.arriveStamp or 0) + 1 -- the reorder's window is built again (Own.orderFill)
 				hit = true
 			end
 		end
@@ -17290,7 +17291,7 @@ end
 -- level changes. -> how many steps; the first is the live step.
 function Own.orderFill(Order, c)
 	local st = Own.orderOf()
-	local key = table.concat({ guide.id, tostring(computed), tostring(Own.logStamp), tostring(player and player.level), tostring(c) }, ":")
+	local key = table.concat({ guide.id, tostring(computed), tostring(Own.logStamp), tostring(Own.arriveStamp), tostring(player and player.level), tostring(c) }, ":")
 	local win = st.win
 	if st.key ~= key then
 		st.key, win.n = key, 0
