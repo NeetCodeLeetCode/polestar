@@ -33,11 +33,10 @@ const LOGIN_BASE: f64 = 11003.0;
 /// whose keys pass a power of two doubles its hash part, so the login can jump by tens of KiB at once (Engine.lua's
 /// `Own` at 512 keys, the class cards' 1,034 class quests).
 const LOGIN: f64 = 15330.0;
-// The fork's "Fastest XP" switch is one more key of the behavior section (Core/FastestXP.lua), and the row "Order the
-// next steps by XP" another: with both a table that holds each setting's key passes a power of two, so the settings'
-// addon reads 2,732 loaded, 4,637 opened and 5,883 peak on the runner (2,475, 4,351 and 5,619 without them). The
-// fork's "Reorder the next steps" row took the opened figure to 4,345 KiB on the runner (4,193 on next f5bd74406e).
-// Each budget is the larger of the figures plus 3 %.
+// The row "Order the next steps by XP" took the figures to 2,732 loaded, 4,637 opened and 5,876 peak (next: 2,475, 4,351,
+// 5,619): the page's tables passed a power of two. The fork's "Fastest XP" switch, one more key of the behavior section
+// (Core/FastestXP.lua), lands in the same tables: 2,732, 4,609 and 5,883 without that row. Each budget is the larger
+// figure plus 3 %.
 const LOADED: f64 = 2814.0;
 const OPENED: f64 = 4776.0;
 const PEAK: f64 = 6059.0;

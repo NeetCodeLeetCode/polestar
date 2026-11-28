@@ -19,6 +19,8 @@ A lever with `hardcore = "leave"` is not written on a Hardcore character.
 A key that no module registers is passed over.
 `tests/fastest-xp.test.js` names a lever whose key no module registers.
 
+`behavior.routeAdvice` is a lever: the cards of docs/ROUTE-ADVICE.md come on with the mode.
+
 The mode never writes these settings: group quests, dungeons, gathering spots, missable warnings,
 the guide end, the zone choice, class teleports and the Shortest Path Forever hand-off.
 
@@ -41,17 +43,19 @@ the guide end, the zone choice, class teleports and the Shortest Path Forever ha
 `engine-live-speed.rs`: six kill quests in one zone, a player that follows only the arrow at 7 yards a second.
 The measure is yards walked until the last quest is done. It is not a measure of XP an hour in the game.
 
-Result, 9 scenarios for each row (zones 1 to 3 and zones 4 to 6, the same on both):
+Result, 9 scenarios for each row (zones 1 to 3 and zones 4 to 6), with the mode at its levers after PR 35 (order by XP):
 
 | Arm | Random guide order | Guide that walks nearest first |
 |---|---|---|
-| Fastest XP against the defaults | 33 to 36 percent fewer yards | 16 to 18 percent fewer yards |
+| Fastest XP against the defaults | 36 to 38 percent fewer yards | 17 to 19 percent fewer yards |
 | Mode without the step reorder | 20 to 31 percent fewer yards (the reorder gives the most) | 9 to 10 percent fewer yards |
-| Mode without nearby objectives (aim) | 2 to 3 percent fewer yards than the mode | 2 percent fewer yards than the mode |
+| Mode without nearby objectives (aim) | 0 to 3 percent fewer yards than the mode | 1 to 5 percent fewer yards than the mode |
+| Mode without order by XP | no change | no change |
 
-- With the step reorder on, the arrow's own pick of nearby objectives walks 2 to 3 percent more in this walk.
+- With the step reorder on, the arrow's own pick of nearby objectives can walk up to 5 percent more in this walk.
   Each quest here is a step the reorder already sees. The walk has no hand-ins or later-step objectives, which is what aim is for.
   Aim stays in the mode until the in-game test shows it costs time. The test holds it at 5 percent at most.
+- Order by XP changes when the XP arrives, not the yards, so this walk cannot show its gain. It never takes longer in all than the guide's order (PR 35).
 - Skips, automation, travel and deathskips cannot change a yard in this walk. The table lists them as "not measured here".
 - The detour budget (5 to 60 seconds) changes nothing with the reorder on. The radius at 180 yards walks at most 3 percent more than the best of 60 to 400.
 - Not measured yet: Forge hours to level 60 and the alternate-level test in the game.

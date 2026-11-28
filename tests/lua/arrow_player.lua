@@ -305,26 +305,35 @@ function ARROW.run(o)
 			-- No arrow: a goal without a place (a level to reach, a check-off), or the guide is at its end.
 			local i = E.GetStepIndex()
 			if not i then m.ended = true; break end
-			local view = E.GetStepView(i)
-			local open
-			for _, goal in ipairs(view.goals) do
-				if goal.status ~= "done" and goal.status ~= "na" and goal.status ~= "skipped" and not goal.optional and not goal.side and goal.t ~= "note" then open = goal; break end
-			end
-			if open and not open.unavailable and open.t ~= "goto" then
-				spend(act(g.steps[i].goals[open.index], open, i), "work")
+			local asked = E.GroupQuestion and E.GroupQuestion()
+			if asked then
+				-- A group quest the guide asks about holds the route until it is answered: a solo player skips it.
+				E.AnswerGroup(asked, "skip")
+				tick(0.6)
+				m.groupAnswers = (m.groupAnswers or 0) + 1
+				trace("answered group quest " .. tostring(asked) .. ": skip")
 			else
-				-- Nothing to do here until a level or a quest turns up: grind.
-				m.grinds = (m.grinds or 0) + 1
-				if m.grinds == 1 or m.grinds == 30 then
-					local why = {}
-					for _, goal in ipairs(view.goals) do why[#why + 1] = ("%s %s %s %s"):format(tostring(goal.t), tostring(goal.status), tostring(goal.text), tostring(goal.unavailable or "")) end
-					m.grindWhy = (m.grindWhy or "") .. ("[t=%d step %s: %s] "):format(now, tostring(i), table.concat(why, "; "))
+				local view = E.GetStepView(i)
+				local open
+				for _, goal in ipairs(view.goals) do
+					if goal.status ~= "done" and goal.status ~= "na" and goal.status ~= "skipped" and not goal.optional and not goal.side and goal.t ~= "note" then open = goal; break end
 				end
-				local g0 = m.xp
-				gain(mobXp(w.level, 1) * 0.8)
-				m.grindXp = (m.grindXp or 0) + (m.xp - g0)
-				m.kills = m.kills + 1
-				spend(10, "idle")
+				if open and not open.unavailable and open.t ~= "goto" then
+					spend(act(g.steps[i].goals[open.index], open, i), "work")
+				else
+					-- Nothing to do here until a level or a quest turns up: grind.
+					m.grinds = (m.grinds or 0) + 1
+					if m.grinds == 1 or m.grinds == 30 then
+						local why = {}
+						for _, goal in ipairs(view.goals) do why[#why + 1] = ("%s %s %s %s"):format(tostring(goal.t), tostring(goal.status), tostring(goal.text), tostring(goal.unavailable or "")) end
+						m.grindWhy = (m.grindWhy or "") .. ("[t=%d step %s: %s] "):format(now, tostring(i), table.concat(why, "; "))
+					end
+					local g0 = m.xp
+					gain(mobXp(w.level, 1) * 0.8)
+					m.grindXp = (m.grindXp or 0) + (m.xp - g0)
+					m.kills = m.kills + 1
+					spend(10, "idle")
+				end
 			end
 			same = same + 1
 		else

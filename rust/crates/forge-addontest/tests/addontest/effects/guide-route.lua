@@ -120,6 +120,14 @@ return {
 		["behavior.fastestXp"] = { once = true, reload = false, prepare = function() open("test/slow") end, probe = function()
 			return { slow = E.GetStepView(1).goals[1].status, other = E.GetStepView(2).goals[1].status }
 		end, cleanup = function() Polestar.Set("behavior.skipSlow", false) end },
+		-- Suggest the next stop: the card is due only while Fastest XP is on in a level-range guide.
+		["behavior.nextStop"] = { once = true, reload = false, prepare = function()
+			open("test/slow")
+			Polestar.Set("behavior.fastestXp", true); flush()
+		end, probe = function() return Polestar.UI.NextStopCard.Enabled() end,
+			cleanup = function() Polestar.Set("behavior.fastestXp", false) end },
+		-- Route advice: the card is due only while the setting is on, in a level-range guide.
+		["behavior.routeAdvice"] = { prepare = function() open("test/slow") end, probe = function() return Polestar.UI.RouteAdviceCard.Enabled() end },
 		-- Skip slow quests turned off by hand while Fastest XP is on: the button writes its value again.
 		["Guide:Put Fastest XP's settings back"] = { press = true, prepare = function()
 			open("test/slow")

@@ -45,6 +45,7 @@ fn arms() -> Vec<Arm> {
 		("mode without here", "here"),
 		("mode without aim", "aim"),
 		("mode without reorder", "reorder"),
+		("mode without order by XP", "reorderXp"),
 		("mode without skips", "skips"),
 		("mode without automation", "automation"),
 		("mode without travel", "travel"),

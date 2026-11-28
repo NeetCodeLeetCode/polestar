@@ -41,12 +41,14 @@ FX.LEVERS = {
 	{ key = "behavior.whileHereAim", value = true, group = "aim", label = L["Take nearby objectives"], hardcore = "leave" },
 	{ key = "behavior.whileHereAimSeconds", value = 15, group = "aim", label = L["Objectives: how far out of your way"], hardcore = "leave" },
 	{ key = "behavior.stepReorder", value = true, group = "reorder", label = L["Reorder the next steps"] },
+	{ key = "behavior.stepReorderXp", value = true, group = "reorderXp", label = L["Order the next steps by XP"] },
 	{ key = "behavior.autoAccept", value = true, group = "automation", label = L["Auto-accept"] },
 	{ key = "behavior.autoTurnin", value = true, group = "automation", label = L["Auto turn-in"] },
 	{ key = "behavior.skipGrey", value = true, group = "skips", label = L["Skip grey quests"] },
 	{ key = "behavior.skipSlow", value = true, group = "skips", label = L["Skip slow quests"] },
 	{ key = "behavior.rareDrops", value = "hide", group = "skips", label = L["Quests started by a rare drop"],
 		names = { optional = L["Optional"], chase = L["Chase them"], hide = L["Hide them"] } },
+	{ key = "behavior.routeAdvice", value = true, group = "advice", label = L["Route advice"] },
 	{ key = "behavior.deathskips", value = true, group = "deathskips", label = L["Use deathskips"], hardcore = "leave" },
 	{ key = "nav.travel", value = true, group = "travel", label = L["Plan travel routes"] },
 }
@@ -75,6 +77,9 @@ function FX.Values(skip)
 	for _, lv in ipairs(levers(skip)) do out[lv.key] = lv.value end
 	return out
 end
+
+-- Whether this character plays Hardcore (the levers marked hardcore = "leave" are not written; Core/NextStop.lua's filter).
+FX.Hardcore = hardcore
 
 function FX.On() return ns.Get("behavior.fastestXp") and true or false end
 

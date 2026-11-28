@@ -209,6 +209,8 @@ mod engine_repeatable;
 mod engine_reset;
 #[path = "engine-review.rs"]
 mod engine_review;
+#[path = "engine-route-advice-reads.rs"]
+mod engine_route_advice_reads;
 #[path = "engine-route-picks.rs"]
 mod engine_route_picks;
 #[path = "engine-routes.rs"]
@@ -408,6 +410,8 @@ mod nav_trail;
 mod nav_transit;
 #[path = "new-in-forever.rs"]
 mod new_in_forever;
+#[path = "next-stop.rs"]
+mod next_stop;
 #[path = "options-memory.rs"]
 mod options_memory;
 #[path = "options-search.rs"]
@@ -482,6 +486,8 @@ mod recorder_progress;
 mod recorder_route;
 mod release;
 mod riding;
+#[path = "route-advice.rs"]
+mod route_advice;
 #[path = "route-experimental.rs"]
 mod route_experimental;
 #[path = "route-plan.rs"]
@@ -579,6 +585,8 @@ mod ui_lookup;
 mod ui_materials;
 #[path = "ui-movers.rs"]
 mod ui_movers;
+#[path = "ui-next-stop-card.rs"]
+mod ui_next_stop_card;
 #[path = "ui-options.rs"]
 mod ui_options;
 #[path = "ui-packs.rs"]
@@ -605,6 +613,8 @@ mod ui_quick_settings;
 mod ui_report_settings;
 #[path = "ui-route.rs"]
 mod ui_route;
+#[path = "ui-route-advice-card.rs"]
+mod ui_route_advice_card;
 #[path = "ui-scrub.rs"]
 mod ui_scrub;
 #[path = "ui-settings-ux.rs"]
