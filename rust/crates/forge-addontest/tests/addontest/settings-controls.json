@@ -242,6 +242,14 @@
    ]
   },
   {
+   "id": "behavior.skipSlow",
+   "kind": "toggle",
+   "label": "Skip slow quests",
+   "at": [
+    "Guide > Automation > Quests"
+   ]
+  },
+  {
    "id": "behavior.spokenDelay",
    "kind": "toggle",
    "label": "Wait for Spoken",

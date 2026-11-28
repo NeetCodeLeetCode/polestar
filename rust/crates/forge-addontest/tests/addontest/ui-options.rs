@@ -1383,7 +1383,8 @@ fn search_forgives_joined_words_typos_prefixes_and_synonyms_and_puts_the_best_ma
 	// What changes Polestar's frame cost: the walking paths and route planning first, then Reduce motion; never the
 	// Quest database, and no three-letter word matches inside another ("lag" in "flag").
 	for (q, v) in out["perf"].as_object().unwrap() {
-		let k: Vec<&str> = v.as_array().unwrap().iter().map(|x| x.as_str().unwrap()).collect();
+		// "Skip slow quests" says "slow" in its label and is about quests, not frame cost.
+		let k: Vec<&str> = v.as_array().unwrap().iter().map(|x| x.as_str().unwrap()).filter(|x| *x != "behavior.skipSlow").collect();
 		assert!(k.len() >= 3, "{q}: {k:?}");
 		let mut first = k[..2].to_vec();
 		first.sort();

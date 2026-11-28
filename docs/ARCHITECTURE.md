@@ -1856,6 +1856,11 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- (Own.itemStart). "chase": Own.chased puts the collect among the goals the arrow leads to. "hide": Own.rareHidden
 -- makes Own.goalSkipped true for them and the quest's other optional goals, and goalStatus reads "na", while the
 -- item is not in the bags and the quest is neither in the log nor done.
+-- behavior.skipSlow (toggle, off): "Skip slow quests". Own.slowSkipped(q, goal) makes goalApplies false for every goal of a
+-- quest on Core/SlowQuestList.lua (written by `slowquests build` from data/codex/slow-quests.json: rows with 2 or more
+-- sources, a review date and a code; a `low-drop` row the forever-db score says is fast is dropped by the build). Never
+-- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
+-- done, nor one a quest not on the list needs (Own.slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")

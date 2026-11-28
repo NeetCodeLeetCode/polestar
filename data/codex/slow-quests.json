@@ -1,0 +1,72 @@
+{
+	"_about": "Quests the setting \"Skip slow quests\" (behavior.skipSlow, off by default) leaves out of the leveling guides: ones that cost far more time than they pay. A hand-written list: a row needs 2 or more sources that agree (a forum thread, a community guide, an XP-per-minute list), a review date and a one-line reason. Blizzard changes drop rates in hotfixes, so review a row after 30 days (`slowquests report` lists the old ones). `slow`: the quests of one chain, left out together; a quest that a quest still worth doing needs stays (Own.slowNeeds). `code`: why (low-drop, slow-respawn, slow-xp). A `low-drop` row also carries a score: its XP over the minutes the quest takes, set against the median of quests of its 3 level band, both from forever-db (kills x 0.25 minute, an item objective needs count over the best drop chance in kills). A row whose score reaches `margin` times that median is overruled: the data says it is not slow, and the build leaves it out of the addon and prints it. A row of another code is never scored, since walks, respawns and crowds are not in the data. `keep`: a quest the community calls slow that is not (the XP pays, or the route does it beside other work): documented here, and the build refuses a quest in both lists. `covered`: quests sources call slow that another setting already handles. `watch`: candidates short of 2 sources. `slowquests build` writes Core/SlowQuestList.lua.",
+	"margin": 1.0,
+	"slow": [
+		{
+			"quests": [701, 702, 847],
+			"name": "Guile of the Raptor",
+			"code": "low-drop",
+			"why": "The raptor item drops about 3 to 4 percent in play (one player: 3 of 12 in 2 hours, 30 players tagging 14 spawn points); the data says 33 percent.",
+			"reviewed": "2026-11-28",
+			"sources": [
+				{ "kind": "forum", "date": "2026-11-23", "note": "Blizzard forum thread on quests that cannot be completed" },
+				{ "kind": "guide", "date": "2026-10-26", "note": "a community leveling guide's skip list for Arathi Highlands (Horde)" }
+			]
+		},
+		{
+			"quests": [1690, 1691],
+			"name": "Wastewander Justice and More Wastewander Justice",
+			"code": "slow-respawn",
+			"why": "The Wastewander mobs respawn slowly under crowds; a community list counts 358 XP per minute against a Tanaris median of 1,309.",
+			"reviewed": "2026-11-28",
+			"sources": [
+				{ "kind": "forum", "date": "2026-11-22", "note": "Blizzard forum thread on crowded quest zones" },
+				{ "kind": "xp-list", "date": "undated", "note": "a community list of quests under 60 percent of the usual XP per minute" }
+			]
+		},
+		{
+			"quests": [570, 571, 572, 573],
+			"name": "Mok'thardin's Enchantment",
+			"code": "low-drop",
+			"why": "The Pristine Tigress Fang needs 100 or more tiger kills; the chain pays 11,700 XP over four parts.",
+			"reviewed": "2026-11-28",
+			"sources": [
+				{ "kind": "forum", "date": "2019-09-28", "note": "Blizzard forum thread on the worst Classic quests" },
+				{ "kind": "guide", "date": "2026-11", "note": "a community Stranglethorn guide: the fang drops when it feels like it" }
+			]
+		}
+	],
+	"keep": [
+		{
+			"quests": [5086],
+			"name": "Toxic Horrors",
+			"why": "One guide skips it; another notes Forever pays 5,800 XP (Classic 4,134). The data scores it 2.6 times the band median.",
+			"reviewed": "2026-11-28"
+		},
+		{
+			"quests": [899],
+			"name": "Consumed by Hatred",
+			"why": "60 tusks is slow alone, but they drop from every Bristleback that Tribes at War asks for (40 percent each), so the route does both at once (data/route-fixes.json, issue 957).",
+			"reviewed": "2026-11-28"
+		},
+		{
+			"quests": [205],
+			"name": "Troll Witchery",
+			"why": "One player reports 4 hours without a drop; the data says 80 percent and the guide keeps it on purpose (Alliance 30-40/04b). One source only, so it stays.",
+			"reviewed": "2026-11-28"
+		}
+	],
+	"covered": [
+		{ "quests": [2742], "name": "Rin'ji is Trapped!", "by": "behavior.groupQuests", "why": "An escort: the player already answers it (Own.escortChoice)." },
+		{ "quests": [485, 836, 2767], "name": "OOX-09/HL and OOX-22/FE", "by": "optional goals", "why": "Marked optional in the guides, and behavior.rareDrops handles the item start." },
+		{ "quests": [665, 666, 667, 668, 669, 670], "name": "Sunken Treasure, Death From Below", "by": "behavior.groupQuests", "why": "Escorts and a group choice in the Arathi guide." },
+		{ "quests": [639], "name": "Sigil of Strom", "by": "behavior.groupQuests", "why": "Behind `when group 639` already." },
+		{ "quests": [694], "name": "Trelane's Defenses", "by": "the guides", "why": "No guide takes it." }
+	],
+	"watch": [
+		{ "quests": [4809, 4810], "name": "Chillwind Horns, Return to Tinkee", "why": "One guide skips both; another only says the delivery to Burning Steppes is not worth a trip. 4810 is not in a leveling guide." },
+		{ "quests": [7841, 649, 650, 77], "name": "Message to the Wildhammer chain, Ripple Recovery", "why": "One forum post (2026-11-22); other guides route them." },
+		{ "quests": [552, 553], "name": "Helcular's Revenge", "why": "Three Classic-era sources (2019), none about Forever's drop rate." },
+		{ "quests": [654], "name": "Tanaris Field Sampling", "why": "One 2022 post." }
+	]
+}
