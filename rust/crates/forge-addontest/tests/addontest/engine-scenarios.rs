@@ -286,11 +286,15 @@ fn probe_one() {
 #[ignore = "probe"]
 fn probe_ablation() {
 	let only = std::env::var("SCENARIO_ONLY").unwrap_or_default();
-	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(5400);
+	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(7200);
+	let seed: u64 = std::env::var("SCENARIO_SEED").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+	let kinds = family_kinds(&std::env::var("SCENARIO_FAMILY").unwrap_or_else(|_| "calm".into()));
 	for c in CHARS.iter().filter(|c| c.0.contains(&only)) {
 		let base = {
 			let mut s = Scene::new(c.1, c.2, c.3, c.4, c.5);
 			s.seconds = secs;
+			s.stop_level = target_level(c.4);
+			s.events = events(seed, secs, &kinds);
 			s
 		};
 		let mut arms: Vec<(String, Scene)> = vec![("defaults".into(), base.clone()), ("mode".into(), base.clone().with(FASTEST))];
@@ -301,7 +305,7 @@ fn probe_ablation() {
 		}
 		for (name, s) in arms {
 			let m = play(&s);
-			eprintln!("{:<18} {:<20} xp {:>7.0} lv{} yd {:>6.0} hand-ins {:>3.0} kills {:>4.0} grind {:>5.0} xp  {}", c.0, name, num(&m, "xp"), num(&m, "level"), num(&m, "yards"), num(&m, "handins"), num(&m, "kills"), num(&m, "grindXp"), flag(&m));
+			eprintln!("{:<18} {:<24} {:>5.0}s lv{} xp {:>7.0} yd {:>6.0} hand-ins {:>3.0} kills {:>4.0} grind {:>5.0} xp  {}", c.0, name, num(&m, "seconds"), num(&m, "level"), num(&m, "xp"), num(&m, "yards"), num(&m, "handins"), num(&m, "kills"), num(&m, "grindXp"), flag(&m));
 		}
 	}
 }

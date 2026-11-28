@@ -427,6 +427,33 @@ function ARROW.run(o)
 			break
 		end
 	end
+	-- What the route left out: the steps this character's class owns, and how each ended (done, skipped, still ahead).
+	do
+		local g = E.GetGuide()
+		local cls = tostring(w.className or w.class or ""):upper()
+		m.classSteps = { done = 0, skipped = 0, ahead = 0, skippedTitles = {} }
+		for i, st in ipairs(g and g.steps or {}) do
+			local mine = false
+			for _, c in ipairs(st.only and st.only.classes or {}) do
+				if tostring(c):upper() == cls then mine = true end
+			end
+			if mine then
+				local view = E.GetStepView(i)
+				local done, skipped, open = 0, 0, 0
+				for _, goal in ipairs(view and view.goals or {}) do
+					if goal.status == "done" then done = done + 1 elseif goal.status == "skipped" then skipped = skipped + 1 elseif goal.status ~= "na" then open = open + 1 end
+				end
+				if skipped > 0 and done == 0 then
+					m.classSteps.skipped = m.classSteps.skipped + 1
+					m.classSteps.skippedTitles[#m.classSteps.skippedTitles + 1] = tostring(st.title)
+				elseif open > 0 then
+					m.classSteps.ahead = m.classSteps.ahead + 1
+				else
+					m.classSteps.done = m.classSteps.done + 1
+				end
+			end
+		end
+	end
 	collectgarbage(); collectgarbage()
 	m.mem = collectgarbage("count") - mem0
 	m.seconds, m.yards, m.level = math.floor(now), math.floor(yards), w.level
