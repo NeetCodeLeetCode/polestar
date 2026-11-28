@@ -64,19 +64,19 @@ impl Rng {
 }
 
 // The six zones: (left, top, right, bottom) in map percent, each 800 by 600 yd.
-const ZONES: [(f64, f64, f64, f64); 6] = [(10.0, 10.0, 36.7, 40.0), (40.0, 10.0, 66.7, 40.0), (70.0, 10.0, 96.7, 40.0), (10.0, 55.0, 36.7, 85.0), (40.0, 55.0, 66.7, 85.0), (70.0, 55.0, 96.7, 85.0)];
-const QUESTS: usize = 6;
+pub(crate) const ZONES: [(f64, f64, f64, f64); 6] = [(10.0, 10.0, 36.7, 40.0), (40.0, 10.0, 66.7, 40.0), (70.0, 10.0, 96.7, 40.0), (10.0, 55.0, 36.7, 85.0), (40.0, 55.0, 66.7, 85.0), (70.0, 55.0, 96.7, 85.0)];
+pub(crate) const QUESTS: usize = 6;
 
 // How the guide orders its six quests.
 #[derive(Clone, Copy)]
-enum Guide {
+pub(crate) enum Guide {
 	Random,
 	// Nearest-first from where the player starts, the way a guide author walks it, then two neighbours swapped.
 	Sensible,
 }
 
 // The guide, the quest log and where the player stands, for scenario `seed` in `zone`.
-fn scene(seed: u64, zone: usize, style: Guide) -> (String, String) {
+pub(crate) fn scene(seed: u64, zone: usize, style: Guide) -> (String, String) {
 	let (l, t, r, b) = ZONES[zone];
 	let mut rng = Rng(seed * 7919 + zone as u64 * 104729 + 17);
 	let (sx, sy) = (rng.between(l, r), rng.between(t, b));
@@ -122,12 +122,17 @@ fn scene(seed: u64, zone: usize, style: Guide) -> (String, String) {
 // The settings that are switched on: a list of keys.
 fn walk(guide: &str, setup: &str, on: &[&str]) -> Vec<f64> {
 	let flip: String = on.iter().map(|k| format!("Polestar.Set(\"{k}\", true); stub.advance(0.6)\n")).collect();
+	walk_script(guide, setup, &flip)
+}
+
+// The same walk after `flip`, any Lua that changes settings once the addon is up. -> { yards, seconds, done, reversals }.
+pub(crate) fn walk_script(guide: &str, setup: &str, flip: &str) -> Vec<f64> {
 	let out = emitted(&RunAddon {
 		stubs: vec!["stub_world.lua"],
 		before: WORLD.into(),
 		addons: vec![Addon::files("Polestar", &["Core/Core.xml"])],
 		saved: vec![("Polestar".into(), r#"PolestarCharDB = { schema = 1, guide = "test/speed" }"#.into())],
-		script: [TEST_PACK, TEST_SOURCE, guide, HELPERS, setup, "stub.login()", r#"stub.fire("QUEST_LOG_UPDATE"); stub.advance(0.6)"#, &flip, "emit(walk(4000))"].join("\n"),
+		script: [TEST_PACK, TEST_SOURCE, guide, HELPERS, setup, "stub.login()", r#"stub.fire("QUEST_LOG_UPDATE"); stub.advance(0.6)"#, flip, "emit(walk(4000))"].join("\n"),
 		..Default::default()
 	});
 	out[0].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()
