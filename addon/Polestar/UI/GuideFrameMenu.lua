@@ -100,6 +100,12 @@ ns.UI.GuideFrame.Part(function(GF)
 				local line, marked = E.SyncPlacement()
 				if line and not marked then ns.Print(line) end
 			end })
+		-- The arrow chooses its target again from where the player stands (Engine.Recalibrate): the held objective, its rest and the kept values go.
+		add({ text = L["Recalibrate the arrow"], icon = "reset", disabled = not (hasGuide and E.Recalibrate), tip = L["Makes the arrow choose its target again from where you stand: it forgets the objective it holds and reads your level, quest log and position anew. The guide, your check-offs and your skips stay."],
+			onClick = function()
+				local line = E.Recalibrate()
+				if line then ns.Print(line) end
+			end })
 		group()
 		-- Pin the shown step's quests in the log as along the way, or unpin them (#644).
 		for _, it in ipairs(GF.PinItems(GF.View())) do add(it) end

@@ -2,7 +2,8 @@
 -- The Guide page's Dynamic Questing > Take nearby objectives (Core/Engine.lua, Own.hereAutoAim), as
 -- engine-live-detour.rs plays it: the arrow leading west to the wolves 600 yd off, and a suggested objective (the
 -- kobold vermin of quest 7, in the log) 140 yd south of the player, a detour of about 28 s. Each probe walks in from
--- far off (a line shown stays a little past its limit) and reads the step the arrow leads to.
+-- far off (a line shown stays a little past its limit) and reads the step the arrow leads to. Three stops at the wolves
+-- come before the vermin, so the planner (it looks through the guide's next four stops) counts the detour as it is.
 local w, E
 local function at(x, y) w.moveTo(1429, x, y); stub.advance(1.2) end
 local function led()
@@ -23,6 +24,9 @@ return {
 		Polestar.RegisterPack({ addon = "Polestar_Test", id = "test", format = 1, title = "Test", author = "Test", version = "1", license = "MIT" })
 		Polestar.RegisterGuide({ id = "test/aim", pack = "test", title = "Aim", minLevel = 1, maxLevel = 10, steps = {
 			{ title = "Wolves", goals = { { t = "kill", target = "Young Wolf", npc = 299, count = 8, quest = 33, oi = 1, map = 1429, x = 20.0, y = 35.1 } } },
+			{ title = "Stay", goals = { { t = "goto", map = 1429, x = 20.0, y = 35.1, r = 10 } } },
+			{ title = "Stay", goals = { { t = "goto", map = 1429, x = 20.0, y = 35.1, r = 10 } } },
+			{ title = "Stay", goals = { { t = "goto", map = 1429, x = 20.0, y = 35.1, r = 10 } } },
 			{ title = "Vermin", goals = { { t = "kill", target = "Kobold Vermin", npc = 6, count = 10, quest = 7, oi = 1, map = 1429, x = 40.0, y = 42.1 } } },
 		} })
 		E.SetGuide("test/aim")

@@ -217,3 +217,30 @@ test('Sync with my quests: a row in the step group, and a click syncs the guide 
 	assert.equal(out.calls, 2);
 	assert.equal(out.saidAfterMarked, 1, 'something marked: the window\'s banner says it, not the chat');
 });
+
+test('Recalibrate the arrow: a row next to Sync with my quests, and a click recalibrates and says so in the chat', () => {
+	const [out] = run(`uistub.setGuide(uistub.elwynn, 3)\n${MENU}
+		local E = Polestar.Engine
+		local function row()
+			local got
+			local show = W.ShowMenu
+			W.ShowMenu = function(_, items) got = items end
+			GF.OpenMenu(GF.menuButton)
+			W.ShowMenu = show
+			for _, it in ipairs(got) do if it.text == "Recalibrate the arrow" then return it end end
+		end
+		local calls, said = 0, {}
+		E.Recalibrate = function() calls = calls + 1; return "Recalibrated." end
+		local shown = menu().items
+		local r = row()
+		Polestar.Print = function(m) said[#said + 1] = m end
+		r.onClick()
+		emit({ shown = shown, enabled = r.disabled ~= true, tip = r.tip ~= nil, calls = calls, said = said[1] or false })`);
+	const groups = groupsOf(out.shown);
+	const where = (t) => groups.findIndex((g) => g.includes(t));
+	assert.equal(where('Recalibrate the arrow'), where('Sync with my quests'), 'it sits in the step group, with Sync');
+	assert.equal(out.enabled, true);
+	assert.equal(out.tip, true, 'the row says what it does');
+	assert.equal(out.calls, 1);
+	assert.equal(out.said, 'Recalibrated.', 'the chat says what it did');
+});
