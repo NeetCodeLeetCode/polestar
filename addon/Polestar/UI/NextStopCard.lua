@@ -28,6 +28,9 @@ ns.RegisterDefaults("behavior", { nextStop = true })
 
 local told = {} -- "level:place" -> true: the places already shown
 
+-- Forget the places told (a new session of the card; the tests).
+function NSC.Reset() told = {} end
+
 local function CT() return UI.ClassToast end
 
 local function duration(seconds)
@@ -54,9 +57,14 @@ end
 function NSC.Model(e)
 	local place, NS = e.place, ns.NextStop
 	local m = { kind = NSC.KIND, icon = NSC.ICON, iconColor = "accent", titleColor = "text", head = L["NEXT STOP"] }
-	m.title = format(L["Go to %s"], place.name)
-	local where = place.kind == "zone" and place.name or format(L["%s, in %s"], place.name, place.zone)
-	m.giver = format(L["%d quests for your level at %s. About %.0f%% of a level in %s."], e.quests, where, e.xp, duration(e.minutes * 60))
+	if place.kind == "dungeon" then
+		m.title = format(L["Go do %s now"], place.name)
+		m.giver = format(L["%d quests inside are ready for you. About %.0f%% of a level in %s, not counting kills."], place.count or e.quests, e.xp, duration(e.minutes * 60))
+	else
+		m.title = format(L["Go to %s"], place.name)
+		local where = place.kind == "zone" and place.name or format(L["%s, in %s"], place.name, place.zone)
+		m.giver = format(L["%d quests for your level at %s. About %.0f%% of a level in %s."], e.quests, where, e.xp, duration(e.minutes * 60))
+	end
 	if e.reason == NS.LEAVE then
 		m.route = L["This pays much better than staying here."]
 	else
@@ -97,7 +105,8 @@ function NSC.Look()
 	local places, here = Places.Build()
 	if not places then return end
 	local p = ns.Lookup.PlayerInfo()
-	local r = NS.Rank({ level = p.level, hardcore = ns.FastestXP.Hardcore(), group = GetNumGroupMembers and GetNumGroupMembers() or 1, here = here }, places)
+	local r = NS.Rank({ level = p.level, hardcore = ns.FastestXP.Hardcore(), group = GetNumGroupMembers and GetNumGroupMembers() or 1,
+		dungeons = ns.Get("behavior.dungeons"), here = here }, places)
 	local top = r.top
 	if not top or top.reason == NS.STAY then return hideOurs() end
 	local key = format("%d:%s", p.level, tostring(top.place.id))

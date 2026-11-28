@@ -156,3 +156,43 @@ fn go_takes_a_trip_to_the_hub_of_the_place() {
 	assert_eq!(out["ok"], true);
 	assert_eq!(out["map"], 9002);
 }
+
+// A dungeon the character can run for its quests: 120 percent of a level in quests ready, at an entrance in Merrow
+// Fields. The dungeon list is the maintainer's: only its three calls are stood in for.
+const DUNGEON: &str = r#"
+local D = Polestar.Dungeons
+D.List = function() return { { key = "tdun", name = "Test Dungeon", kind = "dungeon", minLevel = 18, maxLevel = 26 } } end
+D.QuestXP = function(key) return { ready = { from = 20, to = 21.2, levels = 1.2 }, groups = { ready = { n = 5, xp = 99999 } } } end
+D.Entrance = function(key) return 9002, 30, 30, "e" end
+"#;
+
+#[test]
+fn a_dungeon_is_offered_only_to_a_group_of_three_or_when_the_route_takes_dungeons() {
+	let out = run(&format!(
+		r#"
+		{DUNGEON}
+		local r = {{}}
+		E.SetGuide("test/far"); stub.advance(1)
+		Polestar.Set("behavior.fastestXp", true); stub.advance(1)
+		look()
+		r.alone = card() and card().title
+		CT.Hide()
+		NSC.Reset()
+		GetNumGroupMembers = function() return 3 end
+		look()
+		r.group = card() and {{ title = card().title, lines = card().lines }}
+		CT.Hide()
+		NSC.Reset()
+		GetNumGroupMembers = function() return 1 end
+		Polestar.Set("behavior.dungeons", "run")
+		look()
+		r.route = card() and card().title
+		emit(r)"#
+	));
+	assert_eq!(out["alone"], "Go to Merrow Fields");
+	assert_eq!(out["group"]["title"], "Go do Test Dungeon now");
+	let lines = out["group"]["lines"].as_str().unwrap();
+	assert!(lines.starts_with("5 quests inside are ready for you. About 120% of a level in "), "{lines}");
+	assert!(lines.ends_with(", not counting kills."), "{lines}");
+	assert_eq!(out["route"], "Go do Test Dungeon now");
+}

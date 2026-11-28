@@ -13,7 +13,7 @@
 -- Rules of the maintainer's Free mode (Polestar_FreeMode/Free.lua, a zone hint) are read, not changed.
 
 local ADDON, ns = ...
-local ipairs, pairs, min = ipairs, pairs, math.min
+local ipairs, pairs, pcall, tostring, min = ipairs, pairs, pcall, tostring, math.min
 local sort = table.sort
 
 local Places = {}
@@ -23,6 +23,8 @@ Places.ABOVE = 3 -- levels above the character a quest counts
 Places.HUB_YARDS = 150 -- givers this close to one another make one hub
 Places.WORK_SECS = 240 -- seconds of work for one quest: a first guess
 Places.SLICE = 300 -- Codex quests judged a frame
+Places.DUNGEON_SECS = 2400 -- seconds a dungeon run takes: a first guess
+Places.DUNGEON_ABOVE = 2 -- levels above the character a dungeon's lowest level may be
 Places.NEAREST = 12 -- the zones whose trip is worked out in full: the nearest by the straight walk
 
 local RUN = 7 -- yards a second, as Guides' travel estimate runs
@@ -193,6 +195,38 @@ local function mapName(map)
 	return ns.Compat.GetMapName(map) or "?"
 end
 
+-- The dungeons the character can run for their quests (Dungeons/XP.lua: the quests ready to take or in the log, in
+-- levels; kills are not counted, so the XP is a floor), each a place with one "quest" of that XP. The dungeon list is
+-- the maintainer's, read only; Rank leaves them out when the player has no group and "Dungeons in my route" is Skip.
+local function dungeonPlaces(p, from)
+	local D = ns.Dungeons
+	if not (D and D.List and D.QuestXP and D.Entrance) then return {} end
+	local ok, list = pcall(D.List)
+	if not ok then return {} end
+	local out = {}
+	for _, d in ipairs(list) do
+		local low = d.minLevel or 99
+		if d.kind == "dungeon" and low <= p.level + Places.DUNGEON_ABOVE and (d.maxLevel or 99) >= p.level then
+			local okq, sum = pcall(D.QuestXP, d.key, p)
+			local ready = okq and sum and sum.ready
+			local n = sum and sum.groups and sum.groups.ready and sum.groups.ready.n or 0
+			local map, x, y, f = D.Entrance(d.key)
+			if ready and (ready.levels or 0) > 0 and map and x and y then
+				local at = { map = map, x = x, y = y, f = f }
+				local secs = trip(from, at)
+				if secs then
+					out[#out + 1] = {
+						id = "dungeon:" .. tostring(d.key), kind = "dungeon", name = d.name, map = map, x = x, y = y, f = f,
+						tripSecs = secs, zone = mapName(map), count = n,
+						quests = { { xp = ready.levels * 100, secs = Places.DUNGEON_SECS, level = d.minLevel or p.level } },
+					}
+				end
+			end
+		end
+	end
+	return out
+end
+
 function Places.Build(from)
 	if not Places.Ready() then return nil end
 	from = from or ns.PlayerPoint()
@@ -234,5 +268,6 @@ function Places.Build(from)
 			end
 		end
 	end
+	for _, d in ipairs(dungeonPlaces(ns.Lookup.PlayerInfo(), from)) do out[#out + 1] = d end
 	return out, here
 end

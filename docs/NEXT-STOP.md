@@ -32,7 +32,14 @@ The numbers (1.3, 3 players, 2 levels) are first guesses. The speed test and the
 - Work is 4 minutes for each quest: the Codex has no times. This is a first guess.
 - The Codex has no escort flag, so the Hardcore escort filter does nothing here. The level filter works.
 
+## Dungeons
+
+A dungeon is a place when the maintainer's dungeon list (`Dungeons.List`) has one in range for the character and
+`Dungeons.QuestXP` says quests inside are ready to take or in the log. Its XP is those quests, in levels, so kills are not counted:
+the number is a floor. A run is 40 minutes of work, a first guess. Rank offers a dungeon only to a group of 3 or more,
+or when Guide, Automation, "Dungeons in my route" is not "Skip them". The card then says "Go do (dungeon) now".
+The dungeon files are read, not changed.
+
 ## Not built yet
 
-- The dungeon suggestion: dungeons in range, with the group rule.
 - The check against the shipped guides: for each level, the top 2 places contain the zone of the route.
