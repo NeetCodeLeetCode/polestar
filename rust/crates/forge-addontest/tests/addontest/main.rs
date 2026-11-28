@@ -406,6 +406,8 @@ mod nav_trail;
 mod nav_transit;
 #[path = "new-in-forever.rs"]
 mod new_in_forever;
+#[path = "next-stop.rs"]
+mod next_stop;
 #[path = "options-memory.rs"]
 mod options_memory;
 #[path = "options-search.rs"]
