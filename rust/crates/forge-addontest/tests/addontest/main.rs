@@ -163,6 +163,8 @@ mod engine_level_hold;
 mod engine_level_pick;
 #[path = "engine-level-wait.rs"]
 mod engine_level_wait;
+#[path = "engine-live-ablation.rs"]
+mod engine_live_ablation;
 #[path = "engine-live-detour.rs"]
 mod engine_live_detour;
 #[path = "engine-live-order.rs"]
