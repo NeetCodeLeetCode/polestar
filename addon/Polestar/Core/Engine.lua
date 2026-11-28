@@ -17148,6 +17148,15 @@ function Own.orderPoints(s, c, quests)
 	return ex, ey, ox, oy, ready
 end
 
+-- Where goal is done: its own point, else the candidate picked for the character (a smart goal such
+-- as `train class` has candidates and no point). -> map, x, y, f | nil
+function Own.goalSpot(goal)
+	if goal.map and goal.x and goal.y then return goal.map, goal.x, goal.y, goal.f end
+	local c = goal.candidates and chosen(goal)
+	if c and c.map and c.x and c.y then return c.map, c.x, c.y, c.f end
+	return nil
+end
+
 -- The window of steps (at most StepOrder.MAX) from the live one that may move, with what each
 -- needs (StepOrder.need), filled into ns.StepOrder; kept until the step, the quest log or the
 -- level changes. -> how many steps; the first is the live step.
@@ -17169,12 +17178,16 @@ function Own.orderFill(Order, c)
 		end
 		win.tail = nil
 		if s and win.n > 0 then
-			-- The guide's step after the window: the walk goes on to it, whatever it is.
+			-- The guide's step after the window: the walk goes on to it, whatever it is (a class trainer
+			-- step too: its goal has no point of its own, the trainer picked for the character is where it is done).
 			for g, goal in ipairs(guide.steps[s].goals) do
-				if goalApplies(goal) and blocks(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
-					local pc, wx, wy = Compat().MapToWorld(goal.map, goal.x, goal.y, goal.f)
-					if pc == c then win.tx, win.ty, win.tail = wx, wy, true end
-					break
+				if goalApplies(goal) and blocks(goal) and not goalDone(s, g, goal) then
+					local map, x, y, f = Own.goalSpot(goal)
+					if map then
+						local pc, wx, wy = Compat().MapToWorld(map, x, y, f)
+						if pc == c then win.tx, win.ty, win.tail = wx, wy, true end
+						break
+					end
 				end
 			end
 		end

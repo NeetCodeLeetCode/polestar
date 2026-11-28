@@ -3275,7 +3275,8 @@ the same person never splits that person's group.
   - *The order.* `StepOrder.Best` tries every order that keeps those needs
     (at most 120) and counts the yards from the player to the first step's
     entry, from each step's last place to the next one's first, and on to the
-    guide's step after the window. The guide's own order wins every tie.
+    guide's step after the window (`Own.goalSpot`: a goal's own point, else the
+    candidate picked for the character, so a class trainer step counts). The guide's own order wins every tie.
   - *When it changes.* The best order is taken when it saves
     `Own.ORDER_TAKE` (20) seconds of walking over the guide's order
     (`Own.HERE_WINDING` / `Own.HERE_SPEED` seconds a yard), held while it
