@@ -12,6 +12,7 @@
 	"behavior.groupQuests",
 	"behavior.guideEnd",
 	"behavior.lostQuests",
+	"behavior.nextStop",
 	"behavior.offerClassQuests",
 	"behavior.rareDrops",
 	"behavior.routeChoice",

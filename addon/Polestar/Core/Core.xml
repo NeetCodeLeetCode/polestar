@@ -18,6 +18,7 @@
 	<Script file="FieldRoute.lua"/>
 	<Script file="StopPlanner.lua"/>
 	<Script file="NextStop.lua"/>
+	<Script file="NextStopPlaces.lua"/>
 	<Script file="StepOrder.lua"/>
 	<Script file="Engine.lua"/>
 	<Script file="API.lua"/>

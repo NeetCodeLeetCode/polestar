@@ -17191,6 +17191,7 @@ function Engine.Recalibrate()
 		if Own.hereTick(c, px, py) then aimed = true end
 		if aimed then evaluate() end
 	end
+	ns.Fire("RECALIBRATED")
 	return L["Recalibrated: the arrow chose its target again from where you stand."]
 end
 
