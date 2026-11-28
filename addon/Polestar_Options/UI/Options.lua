@@ -331,6 +331,11 @@ local BUILTIN = {
 		{ kind = "toggle", key = "behavior.stepReorder", label = L["Reorder the next steps"], new = "0.4.4",
 			help = L["When the next few steps of the guide can be done in an order that walks less, the window shows the one to do first. The guide, its steps and your progress stay as they are, and a step that needs another one, a flight, a dungeon or a timed quest keeps its place."],
 			search = "reorder, steps, order, route, shortest, dynamic, out of order, next steps, walk less" },
+		-- Dungeon quests you pass (Engine Own.hereDungeons, Dungeons/Nearby.lua): off by default.
+		{ kind = "toggle", key = "behavior.whileHereDungeons", label = L["Dungeon quests you pass"], new = "0.4.4",
+			help = L["Also a dungeon's quest, or the first quest of its chain, when you walk by its giver: for a dungeon up to 10 levels ahead, while your quest log has 5 free slots. Taken now, it is in your log when you get there."],
+			search = "dungeon quests, dungeon pick up, prerequisite, chain, carry, later, instance quests",
+			disabled = function() return not ns.Get("behavior.whileHere") end },
 		-- 0.3.7's flight paths you pass (Engine Own.hereBuild).
 		{ kind = "toggle", key = "behavior.whileHereFlights", label = L["Flight paths you pass"],
 			help = L["Also a friendly flight master near you whose flight path you haven't learned yet. Learning it ticks the guide's later step for it too."],
@@ -535,6 +540,10 @@ local BUILTIN = {
 		{ kind = "toggle", key = "nav.worldPins", label = L["Guide pins on the world map"], search = "map pins, icons, markers, waypoint, world map, guide pins, target, on the world map",
 			help = L["The arrow's target, the stops of its travel route, the step's other goals, the areas their mobs and objects spawn in, and the route lines."] },
 		{ kind = "toggle", key = "nav.minimapPins", label = L["Guide pin on the minimap"], help = L["The arrow's target, the areas it spawns in, and the route line."], search = "map pins, icons, markers, waypoint, minimap, guide pins, target, on the minimap" },
+		{ kind = "toggle", key = "nav.hidePinsWithGuide", label = L["Hide the pins with the guide"],
+			help = L["When the guide window is hidden, hide the guide's pins and route lines on the world map and the minimap too."],
+			search = "hide with guide, guide hidden, window closed, map pins, route lines, minimap, world map, clutter",
+			disabled = function() return not ns.Get("nav.worldPins") and not ns.Get("nav.minimapPins") end },
 		H({ kind = "toggle", key = "nav.minimapRoute", label = L["Route line on the minimap"],
 			help = L["The way to the goal on the minimap. Off keeps the guide pin there and the line on the world map. Its colour, opacity and size: the gear beside Guide > Arrow & routes > Route lines."],
 			search = "route line, path, dots, minimap, herbs, gathering, mining, clutter, route on the minimap, radar",
@@ -883,7 +892,8 @@ local function buildAbout(view)
 		.. L["Freedoom Arcade by petllama (GPL-2.0 or later) plays three levels of Freedoom by the Freedoom project (BSD License), from the Polestar_Arcade folder."] .. "\n"
 		.. L["Discord and its logo are trademarks of Discord Inc.; the logo marks the link to the Polestar Discord."] .. "\n"
 		.. L["With EllesmereUI installed, Polestar can follow its accent, font and panel colour through its public skinning API."] .. "\n"
-		.. L["Gear scores from Forever Leveling BiS by Timearc when it is installed, through its public API."])
+		.. L["Gear scores from Forever Leveling BiS by Timearc when it is installed, through its public API."] .. "\n"
+		.. L["Profession routes: based on the guides by Peter at WoW-Professions.com."])
 	-- Special thanks (UI/Thanks.lua), under the credits: one supporter or
 	-- contributor a time the page opens, a link to Guiding Stars.
 	local thanksLead = W.Text(view, "note", "textDim")
@@ -3918,7 +3928,13 @@ function Undo.rowLinks(on)
 				w.UndoB = b
 			end
 			b:ClearAllPoints()
-			b:SetPoint("LEFT", w.Label, "LEFT", math.ceil(w.Label:GetStringWidth()) + 8, 0)
+			-- After the row's (i) when it has one, not on top of it.
+			local info = rawget(w, "Info")
+			if info and info:IsShown() then
+				b:SetPoint("LEFT", info, "RIGHT", 6, 0)
+			else
+				b:SetPoint("LEFT", w.Label, "LEFT", math.ceil(w.Label:GetStringWidth()) + 8, 0)
+			end
 			b:Show()
 			Undo.links[w] = true
 		end

@@ -569,6 +569,17 @@
 --   Click to show quest guide actions.
 --   A guide to the items 1 quest in your log needs from where it is given, ending at the entrance.
 --   A guide to the items %d quests in your log need from where they are given, ending at the entrance.
+--   Profession routes: based on the guides by Peter at WoW-Professions.com.
+-- Machine-translated, to be reviewed (#2576 auction house prices, 27 Nov 2026): translated by an AI model (Claude Opus 5.5)
+-- and waiting for a native speaker's check. Reviewing one: keep or fix its line below, and take its key off this list.
+--   Optional: buy at the auction house (/polestar ah)
+--   Auctionator estimate: %s
+--   %s (%d still unpriced)
+--   The auction house is unavailable to Self-Found characters.
+--   No cached price
+--   No cached prices for the remaining quest items.
+--   Partial estimate for remaining quest items: %s
+--   Estimated total for remaining quest items: %s
 
 local ns = Polestar
 if not (ns and ns.Names and ns.Names.Language and ns.Names.Language() == "zhTW") then return end
@@ -1735,7 +1746,6 @@ L["Pick what the step asks for"] = "選擇步驟要求的選項"
 L["At the step's NPC, picks the chat option the guide names, or opens the goods or training the step needs. Only on the step the guide is at. Hold Shift to choose yourself."] = "在步驟的 NPC 處，選擇指南指定的對話選項，或開啟步驟需要的商品或訓練。僅限指南目前所在的步驟。按住 Shift 可自行選擇。"
 L["Picks the only option of NPCs without quests. Hold Shift to read it. Off, the game still skips some itself, Pick what the step asks for still picks the step's option, and flight masters follow Open the flight map."] = "自動選擇沒有任務的 NPC 唯一的選項。按住 Shift 可閱讀內容。關閉時遊戲仍會自行跳過部分對話，「選擇步驟要求的選項」仍會選擇步驟的選項，飛行管理員則依「開啟飛行地圖」設定。"
 L["Click objectives to target"] = "點擊任務目標以選取"
-L["Clicking an objective row or NPC heading also targets its NPC outside combat, using the same marking settings as the Target button. This replaces your current target; a failed search clears it."] = "在戰鬥外點擊任務目標列或 NPC 標題時，也會選取該 NPC，並使用與目標按鈕相同的標記設定。這會取代你目前的目標；搜尋失敗時會清除目標。"
 L["The target button and the step key put a raid icon on the mob and the NPC they target; out of combat, a press that finds neither clears your target. Pressing again never takes an icon off. In a party you don't lead, only a unit with no icon gets one; in a raid, only when you lead or assist."] = "目標按鈕與步驟鍵會在其選取的怪物與 NPC 上標記團隊圖示；非戰鬥中，若按下時兩者都找不到會清除你的目標。再按一次不會移除圖示。在你不是隊長的小隊中，只有沒有圖示的單位會被標記；在團隊中，僅限你是隊長或助理時。"
 L["Ping what they target"] = "對選取的目標發送信號"
 L["Show quest-starting loot"] = "顯示開始任務的戰利品"
@@ -1790,6 +1800,7 @@ L["Equip a spare bag first"] = "先裝備備用背包"
 L["When your bags are nearly full and a bag sits in them while a bag slot is empty, the bag button and the guide window offer to put it on before any junk. Nothing happens until you press."] = "當背包快滿、背包中有一個背包而背包欄位又有空位時，背包按鈕與指南視窗會先提議裝上它，再處理垃圾。在你按下之前不會有任何動作。"
 L["Step errands"] = "步驟雜務"
 L["Level pace"] = "升級節奏"
+-- L["Clicking an objective row, an NPC heading or a While you're here line also targets its mob or NPC outside combat, using the Target button's marking settings. This replaces your current target. A failed search clears it."] = ""
 
 -- Lookup/Sources.lua
 L["Alliance only"] = "僅限聯盟"
@@ -2033,6 +2044,7 @@ L["about %d kills, %d min"] = "約%d次擊殺，%d分鐘"
 L["about %d kills"] = "約%d次擊殺"
 L["or %s (%s)"] = "或%s（%s）"
 L["or %s"] = "或%s"
+L["Optional: buy at the auction house (/polestar ah)"] = "選擇性：在拍賣場購買（/polestar ah）"
 
 -- UI/GuideFrame.lua
 L["Location"] = "位置"
@@ -3063,6 +3075,7 @@ L["Quest and map data includes pfQuest by shagu (MIT License)."] = "任務與地
 L["Discord and its logo are trademarks of Discord Inc.; the logo marks the link to the Polestar Discord."] = "Discord 及其標誌為 Discord Inc. 的商標；此標誌代表前往 Polestar Discord 的連結。"
 L["With EllesmereUI installed, Polestar can follow its accent, font and panel colour through its public skinning API."] = "安裝 EllesmereUI 時，Polestar 可透過其公開的外觀 API 跟隨其強調色、字型與面板顏色。"
 L["Gear scores from Forever Leveling BiS by Timearc when it is installed, through its public API."] = "安裝 Forever Leveling BiS（作者 Timearc）時，透過其公開 API 取得裝備評分。"
+L["Profession routes: based on the guides by Peter at WoW-Professions.com."] = "專業技能路線：根據 WoW-Professions.com 的 Peter 的指南。"
 L["Maintenance"] = "維護"
 L["Reset all settings"] = "重置所有設定"
 L["Every Polestar setting back to default. Progress is kept."] = "所有 Polestar 設定回到預設。進度會保留。"
@@ -3353,9 +3366,9 @@ L["Your target"] = "你的目標"
 L["Targeting a rare."] = "選取到稀有。"
 L["Under the cursor"] = "游標下"
 L["Pointing at a rare in the world."] = "滑鼠指向世界中的稀有。"
-L["Rares on the world map"] = "地圖上的稀有"
+L["Rares on zone maps"] = "區域地圖上的稀有"
 L["Every known spawn point. Click one to see it in Rares; Shift-click for a waypoint."] = "所有已知重生點。點擊可在稀有中查看；Shift-點擊設定路徑點。"
-L["Treasures on the world map"] = "地圖上的寶藏"
+L["Treasures on zone maps"] = "區域地圖上的寶藏"
 L["Every known treasure spot."] = "所有已知寶藏地點。"
 L["Rares on the minimap"] = "小地圖上的稀有"
 L["Loads the Codex at login."] = "登入時載入 Codex。"
@@ -4607,7 +4620,7 @@ L["One breath of the pulse: shorter is faster."] = "脈動一次的時間：越�
 L["On the minimap"] = "在小地圖上"
 L["The opacity of the soft tint over the places mobs and objects spawn, on the world map and the minimap, their outlines with it. The swatch gives every area one colour."] = "怪物與物件重生處的柔和色塊在世界地圖與小地圖上的不透明度，其外框也隨之調整。色票可讓所有區域使用同一種顏色。"
 L["Spawn spots"] = "重生地點"
-L["Small marks on the world map where the target also spawns, each numbered in its tooltip. Click one to search there next."] = "世界地圖上目標也會重生之處的小標記，每個在提示中帶有編號。點擊一個即接著去那裡搜尋。"
+L["Small marks on zone maps where the target also spawns, each numbered in its tooltip. Click one to search there next."] = "區域地圖上目標也會重生之處的小標記，每個在提示中帶有編號。點擊一個即接著去那裡搜尋。"
 L["Moving dots from you to the target on both maps while route lines are off; the slider is their size. They wear the arrow's colour; their opacity is in the cog."] = "路線線條關閉時，在兩張地圖上從你移向目標的點；滑桿為其大小。它們使用箭頭的顏色；不透明度在齒輪中。"
 L["The trail's dots on both maps."] = "兩張地圖上的軌跡點。"
 L["The numbered pins on the world map and the minimap. Bigger pins also grow past the usual limit on screen. Their rim colour is in the cog."] = "世界地圖與小地圖上的編號標記。較大的標記在畫面上也能超過一般的大小上限。其外圈顏色在齒輪中。"
@@ -4640,8 +4653,8 @@ L["Each step ahead in its own colour, none fainter, so the route reads at a glan
 L["Icons and target"] = "圖示與目標"
 L["Spawn markers"] = "重生點標記"
 L["Spawn markers for your quests"] = "任務的重生點標記"
-L["A skull on the world map and the minimap at every spawn of the mobs your quests need, one colour per quest and a ring per mob; the things you pick up or use get the pickup bag. Their size and opacity are on the Icons tab."] = "在地圖和小地圖上，於你的任務所需怪物的每個重生點顯示骷髏，每個任務一種顏色，每種怪物一個圓環；需要拾取或使用的東西顯示拾取袋。大小和不透明度在「圖示」分頁。"
-L["Off: the spawn markers show on the world map only."] = "關閉：重生點標記只顯示在地圖上。"
+L["A skull on zone maps and the minimap at every spawn of the mobs your quests need, one colour per quest and a ring per mob; the things you pick up or use get the pickup bag. Their size and opacity are on the Icons tab."] = "在區域地圖和小地圖上，於你的任務所需怪物的每個重生點顯示骷髏，每個任務一種顏色，每種怪物一個圓環；需要拾取或使用的東西顯示拾取袋。大小和不透明度在「圖示」分頁。"
+L["Off: the spawn markers show on zone maps only."] = "關閉：重生點標記只顯示在區域地圖上。"
 L["Legend on the world map"] = "地圖圖例"
 L["Lists the quests and mobs on the shown map. Hover a row to highlight its markers, click it to turn them off or on."] = "列出目前地圖上的任務和怪物。滑鼠停在某行上以醒目顯示其標記，點擊以關閉或開啟它們。"
 L["Only the current step's quests"] = "僅目前步驟的任務"
@@ -5072,7 +5085,6 @@ L["Title menu"] = "標題選單"
 L["On the top edge"] = "上邊緣"
 L["Down the left side"] = "左側"
 L["Default (%s)"] = "預設（%s）"
-L["A button in the step bar that opens every step of the guide in one list. The step number and the guide menu open it too."] = "步驟列中的一個按鈕，可在一個清單中開啟指南的所有步驟。步驟編號和指南選單也能開啟它。"
 L["Steps before"] = "之前的步驟"
 L["How many of the steps before this one show over it, one dimmed line each, done or skipped; 0 turns them off. Click one to go back to it."] = "在此步驟上方顯示多少個之前的步驟，每個一行淡色，已完成或已跳過；0 表示關閉。點擊一個可返回該步驟。"
 L["Journey style"] = "旅程樣式"
@@ -5470,6 +5482,13 @@ L["MATERIALS FOR %s"] = "%s 的材料"
 L["%s held"] = "已有 %s 個"
 L["Tracking is on"] = "追蹤已開啟"
 L["Tracking is on: your minimap shows the ones that are up."] = "追蹤已開啟：你的小地圖會顯示已刷新的目標。"
+L["Auctionator estimate: %s"] = "Auctionator 估價：%s"
+L["%s (%d still unpriced)"] = "%s（%d 件尚無價格）"
+L["The auction house is unavailable to Self-Found characters."] = "獨行角色無法使用拍賣場。"
+L["No cached price"] = "沒有快取價格"
+L["No cached prices for the remaining quest items."] = "剩餘任務物品沒有快取價格。"
+L["Partial estimate for remaining quest items: %s"] = "剩餘任務物品的部分估價：%s"
+L["Estimated total for remaining quest items: %s"] = "剩餘任務物品的估計總價：%s"
 
 -- UI/Materials.lua
 L["Your choice"] = "你的選擇"
@@ -5617,7 +5636,6 @@ L["%d changed"] = "%d 項已變更"
 L["What Polestar does for you while you level: suggestions, quests, rewards, buttons, rares."] = "升級時 Polestar 為你做的事：建議、任務、獎勵、按鈕、稀有怪。"
 L["The arrow, its routes, and what Polestar draws on the world map and the minimap."] = "箭頭、它的路線，以及 Polestar 在世界地圖和小地圖上繪製的內容。"
 L["The theme every Polestar window wears, the action buttons, the alert cards and the trackers."] = "每個 Polestar 視窗使用的主題、動作按鈕、提醒卡片和追蹤器。"
-L["Profiles, other addons, community guides and gamepad."] = "設定檔、其他插件、社群指南和手把。"
 L["Pinned"] = "已釘選"
 L["Pinned, not available here: %d"] = "已釘選但此處無法使用：%d"
 L["Pin a setting with the flag on its row."] = "用設定列上的旗標將其釘選。"
@@ -6061,6 +6079,7 @@ L["Click to show quest guide actions."] = "點擊顯示任務指南操作。"
 -- L["Max height"] = "最大高度"
 -- L["%s: on this step"] = "%s：在此步驟"
 -- L["Your own quests as a guide, in a tab of its own: the arrow leads to the nearest one, then the next (/polestar free)."] = "把你自己的任務當作指南，在單獨的分頁中：箭頭指向最近的任務，然後是下一個（/polestar free）。"
+-- L["Clicking an objective row or NPC heading also targets its NPC outside combat, using the same marking settings as the Target button. This replaces your current target; a failed search clears it."] = "在戰鬥外點擊任務目標列或 NPC 標題時，也會選取該 NPC，並使用與目標按鈕相同的標記設定。這會取代你目前的目標；搜尋失敗時會清除目標。"
 -- L["The last steps here aren't mapped"] = "這裡最後幾步沒有地圖"
 -- L["None of these has a known place to hand it in."] = "這些任務都沒有已知的繳交地點。"
 -- L["Travel time to this hand-in is unknown. Its location is still shown."] = "前往此繳交處的路程時間未知。仍會顯示它的位置。"

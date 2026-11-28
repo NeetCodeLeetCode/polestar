@@ -569,6 +569,17 @@
 --   Click to show quest guide actions.
 --   A guide to the items 1 quest in your log needs from where it is given, ending at the entrance.
 --   A guide to the items %d quests in your log need from where they are given, ending at the entrance.
+--   Profession routes: based on the guides by Peter at WoW-Professions.com.
+-- Machine-translated, to be reviewed (#2576 auction house prices, 27 Nov 2026): translated by an AI model (Claude Opus 5.5)
+-- and waiting for a native speaker's check. Reviewing one: keep or fix its line below, and take its key off this list.
+--   Optional: buy at the auction house (/polestar ah)
+--   Auctionator estimate: %s
+--   %s (%d still unpriced)
+--   The auction house is unavailable to Self-Found characters.
+--   No cached price
+--   No cached prices for the remaining quest items.
+--   Partial estimate for remaining quest items: %s
+--   Estimated total for remaining quest items: %s
 
 local ns = Polestar
 if not (ns and ns.Names and ns.Names.Language and ns.Names.Language() == "koKR") then return end
@@ -1735,7 +1746,6 @@ L["Pick what the step asks for"] = "단계가 요구하는 것 선택"
 L["At the step's NPC, picks the chat option the guide names, or opens the goods or training the step needs. Only on the step the guide is at. Hold Shift to choose yourself."] = "단계의 NPC에게서 가이드가 지정한 대화 선택지를 고르거나, 단계에 필요한 상품 또는 훈련 창을 엽니다. 가이드가 있는 단계에서만 작동합니다. 직접 고르려면 Shift를 누르십시오."
 L["Picks the only option of NPCs without quests. Hold Shift to read it. Off, the game still skips some itself, Pick what the step asks for still picks the step's option, and flight masters follow Open the flight map."] = "퀘스트가 없는 NPC의 유일한 선택지를 고릅니다. 읽으려면 Shift를 누르십시오. 꺼도 게임이 일부는 스스로 건너뛰고, 단계가 요구하는 것 선택은 여전히 단계의 선택지를 고르며, 비행 조련사는 비행 지도 열기 설정을 따릅니다."
 L["Click objectives to target"] = "임무 클릭으로 대상 지정"
-L["Clicking an objective row or NPC heading also targets its NPC outside combat, using the same marking settings as the Target button. This replaces your current target; a failed search clears it."] = "임무 줄이나 NPC 제목을 클릭하면 전투 중이 아닐 때 그 NPC도 대상으로 지정합니다. 징표 설정은 대상 버튼과 같습니다. 현재 대상이 바뀌며, 찾지 못하면 대상이 해제됩니다."
 L["The target button and the step key put a raid icon on the mob and the NPC they target; out of combat, a press that finds neither clears your target. Pressing again never takes an icon off. In a party you don't lead, only a unit with no icon gets one; in a raid, only when you lead or assist."] = "대상 버튼과 단계 키가 대상으로 지정한 몹과 NPC에 공격대 아이콘을 붙입니다. 전투 중이 아닐 때 아무것도 찾지 못하면 대상을 해제합니다. 다시 눌러도 아이콘을 떼지 않습니다. 내가 파티장이 아닌 파티에서는 아이콘이 없는 대상에만 붙이고, 공격대에서는 공격대장이나 부공격대장일 때만 붙입니다."
 L["Ping what they target"] = "대상에 핑 표시"
 L["Show quest-starting loot"] = "퀘스트 시작 전리품 표시"
@@ -1790,6 +1800,7 @@ L["Equip a spare bag first"] = "여분 가방 먼저 착용"
 L["When your bags are nearly full and a bag sits in them while a bag slot is empty, the bag button and the guide window offer to put it on before any junk. Nothing happens until you press."] = "가방이 거의 가득 찼는데 가방 칸이 비어 있고 가방 안에 가방이 있으면, 가방 버튼과 가이드 창이 잡동사니보다 먼저 그 가방을 착용하도록 제안합니다. 누르기 전에는 아무 일도 일어나지 않습니다."
 L["Step errands"] = "단계 심부름"
 L["Level pace"] = "레벨 속도"
+-- L["Clicking an objective row, an NPC heading or a While you're here line also targets its mob or NPC outside combat, using the Target button's marking settings. This replaces your current target. A failed search clears it."] = ""
 
 -- Lookup/Sources.lua
 L["Alliance only"] = "얼라이언스 전용"
@@ -2033,6 +2044,7 @@ L["about %d kills, %d min"] = "약 %d마리, %d분"
 L["about %d kills"] = "약 %d마리"
 L["or %s (%s)"] = "또는 %s (%s)"
 L["or %s"] = "또는 %s"
+L["Optional: buy at the auction house (/polestar ah)"] = "선택: 경매장에서 구매 (/polestar ah)"
 
 -- UI/GuideFrame.lua
 L["Location"] = "위치"
@@ -3063,6 +3075,7 @@ L["Quest and map data includes pfQuest by shagu (MIT License)."] = "퀘스트 �
 L["Discord and its logo are trademarks of Discord Inc.; the logo marks the link to the Polestar Discord."] = "Discord와 로고는 Discord Inc.의 상표입니다. 로고는 Polestar Discord 링크를 나타냅니다."
 L["With EllesmereUI installed, Polestar can follow its accent, font and panel colour through its public skinning API."] = "EllesmereUI가 설치되어 있으면 Polestar가 공개 스킨 API로 그 강조색, 글꼴, 패널 색을 따를 수 있습니다."
 L["Gear scores from Forever Leveling BiS by Timearc when it is installed, through its public API."] = "Forever Leveling BiS(Timearc 제작)가 설치되어 있으면 공개 API로 장비 점수를 가져옵니다."
+L["Profession routes: based on the guides by Peter at WoW-Professions.com."] = "전문 기술 루트: WoW-Professions.com의 Peter의 가이드를 바탕으로 합니다."
 L["Maintenance"] = "관리"
 L["Reset all settings"] = "모든 설정 초기화"
 L["Every Polestar setting back to default. Progress is kept."] = "모든 Polestar 설정을 기본값으로. 진행 상황은 유지됩니다."
@@ -3353,9 +3366,9 @@ L["Your target"] = "내 대상"
 L["Targeting a rare."] = "희귀를 대상으로 지정할 때."
 L["Under the cursor"] = "커서 아래"
 L["Pointing at a rare in the world."] = "월드에서 희귀에 커서를 올릴 때."
-L["Rares on the world map"] = "지도에 희귀"
+L["Rares on zone maps"] = "지역 지도에 희귀"
 L["Every known spawn point. Click one to see it in Rares; Shift-click for a waypoint."] = "알려진 모든 등장 지점. 클릭하면 희귀에서 보고, Shift-클릭하면 경유지."
-L["Treasures on the world map"] = "지도에 보물"
+L["Treasures on zone maps"] = "지역 지도에 보물"
 L["Every known treasure spot."] = "알려진 모든 보물 위치."
 L["Rares on the minimap"] = "미니맵에 희귀"
 L["Loads the Codex at login."] = "접속 시 Codex를 불러옵니다."
@@ -4607,7 +4620,7 @@ L["One breath of the pulse: shorter is faster."] = "맥동 한 번의 길이: �
 L["On the minimap"] = "미니맵에서"
 L["The opacity of the soft tint over the places mobs and objects spawn, on the world map and the minimap, their outlines with it. The swatch gives every area one colour."] = "몹과 사물이 등장하는 곳에 덧입히는 옅은 색의 불투명도(지도와 미니맵, 윤곽선 포함). 색상 견본으로 모든 지역을 한 가지 색으로 정합니다."
 L["Spawn spots"] = "등장 지점"
-L["Small marks on the world map where the target also spawns, each numbered in its tooltip. Click one to search there next."] = "대상이 함께 등장하는 곳을 세계 지도에 표시하는 작은 표식으로, 툴팁에 각각 번호가 붙습니다. 클릭하면 다음에 그곳을 찾습니다."
+L["Small marks on zone maps where the target also spawns, each numbered in its tooltip. Click one to search there next."] = "대상이 함께 등장하는 곳을 지역 지도에 표시하는 작은 표식으로, 툴팁에 각각 번호가 붙습니다. 클릭하면 다음에 그곳을 찾습니다."
 L["Moving dots from you to the target on both maps while route lines are off; the slider is their size. They wear the arrow's colour; their opacity is in the cog."] = "경로선이 꺼져 있을 때 두 지도에서 나에게서 목표까지 움직이는 점. 슬라이더는 점 크기입니다. 화살표 색을 쓰며, 불투명도는 톱니바퀴에 있습니다."
 L["The trail's dots on both maps."] = "두 지도의 경로 점."
 L["The numbered pins on the world map and the minimap. Bigger pins also grow past the usual limit on screen. Their rim colour is in the cog."] = "지도와 미니맵의 번호 핀. 핀을 키우면 화면상의 일반 한도를 넘어 커집니다. 테두리 색은 톱니바퀴에 있습니다."
@@ -4640,8 +4653,8 @@ L["Each step ahead in its own colour, none fainter, so the route reads at a glan
 L["Icons and target"] = "아이콘과 목표"
 L["Spawn markers"] = "생성 위치 표시"
 L["Spawn markers for your quests"] = "내 퀘스트의 생성 위치 표시"
-L["A skull on the world map and the minimap at every spawn of the mobs your quests need, one colour per quest and a ring per mob; the things you pick up or use get the pickup bag. Their size and opacity are on the Icons tab."] = "내 퀘스트에 필요한 몹이 생성되는 모든 곳에 지도와 미니맵 해골을 표시합니다. 퀘스트마다 색 하나, 몹마다 고리 하나이며, 줍거나 사용하는 것은 줍기 가방으로 표시됩니다. 크기와 불투명도는 아이콘 탭에 있습니다."
-L["Off: the spawn markers show on the world map only."] = "끄기: 생성 위치 표시는 지도에만 나타납니다."
+L["A skull on zone maps and the minimap at every spawn of the mobs your quests need, one colour per quest and a ring per mob; the things you pick up or use get the pickup bag. Their size and opacity are on the Icons tab."] = "내 퀘스트에 필요한 몹이 생성되는 모든 곳에 지역 지도와 미니맵 해골을 표시합니다. 퀘스트마다 색 하나, 몹마다 고리 하나이며, 줍거나 사용하는 것은 줍기 가방으로 표시됩니다. 크기와 불투명도는 아이콘 탭에 있습니다."
+L["Off: the spawn markers show on zone maps only."] = "끄기: 생성 위치 표시는 지역 지도에만 나타납니다."
 L["Legend on the world map"] = "지도 범례"
 L["Lists the quests and mobs on the shown map. Hover a row to highlight its markers, click it to turn them off or on."] = "표시된 지도의 퀘스트와 몹을 나열합니다. 줄에 마우스를 올리면 해당 표시가 강조되고, 클릭하면 끄거나 켭니다."
 L["Only the current step's quests"] = "현재 단계의 퀘스트만"
@@ -5072,7 +5085,6 @@ L["Title menu"] = "제목 메뉴"
 L["On the top edge"] = "위쪽 가장자리"
 L["Down the left side"] = "왼쪽 세로"
 L["Default (%s)"] = "기본값 (%s)"
-L["A button in the step bar that opens every step of the guide in one list. The step number and the guide menu open it too."] = "가이드의 모든 단계를 한 목록으로 여는 단계 막대의 버튼입니다. 단계 번호와 가이드 메뉴로도 열 수 있습니다."
 L["Steps before"] = "이전 단계"
 L["How many of the steps before this one show over it, one dimmed line each, done or skipped; 0 turns them off. Click one to go back to it."] = "이 단계 위에 표시할 이전 단계 수입니다. 완료했거나 건너뛴 단계가 하나씩 흐린 줄로 표시되며, 0이면 끕니다. 하나를 클릭하면 그 단계로 돌아갑니다."
 L["Journey style"] = "여정 스타일"
@@ -5470,6 +5482,13 @@ L["MATERIALS FOR %s"] = "%s 재료"
 L["%s held"] = "%s개 보유"
 L["Tracking is on"] = "추적 켜짐"
 L["Tracking is on: your minimap shows the ones that are up."] = "추적 켜짐: 미니맵에 지금 있는 것이 표시됩니다."
+L["Auctionator estimate: %s"] = "Auctionator 예상가: %s"
+L["%s (%d still unpriced)"] = "%s (%d개 아직 가격 없음)"
+L["The auction house is unavailable to Self-Found characters."] = "자수성가 캐릭터는 경매장을 이용할 수 없습니다."
+L["No cached price"] = "저장된 가격 없음"
+L["No cached prices for the remaining quest items."] = "남은 퀘스트 아이템의 저장된 가격이 없습니다."
+L["Partial estimate for remaining quest items: %s"] = "남은 퀘스트 아이템의 부분 예상가: %s"
+L["Estimated total for remaining quest items: %s"] = "남은 퀘스트 아이템의 예상 합계: %s"
 
 -- UI/Materials.lua
 L["Your choice"] = "직접 선택"
@@ -5617,7 +5636,6 @@ L["%d changed"] = "%d개 변경됨"
 L["What Polestar does for you while you level: suggestions, quests, rewards, buttons, rares."] = "레벨업하는 동안 Polestar가 해 주는 일: 제안, 퀘스트, 보상, 버튼, 희귀 몬스터."
 L["The arrow, its routes, and what Polestar draws on the world map and the minimap."] = "화살표와 경로, 그리고 Polestar가 세계 지도와 미니맵에 그리는 것."
 L["The theme every Polestar window wears, the action buttons, the alert cards and the trackers."] = "모든 Polestar 창의 테마, 행동 버튼, 알림 카드, 추적기."
-L["Profiles, other addons, community guides and gamepad."] = "프로필, 다른 애드온, 커뮤니티 가이드, 게임패드."
 L["Pinned"] = "고정됨"
 L["Pinned, not available here: %d"] = "고정됨, 여기서 사용할 수 없음: %d"
 L["Pin a setting with the flag on its row."] = "행의 깃발로 설정을 고정하세요."
@@ -6061,6 +6079,7 @@ L["Click to show quest guide actions."] = "클릭하면 퀘스트 가이드 동�
 -- L["Max height"] = "최대 높이"
 -- L["%s: on this step"] = "%s: 같은 단계"
 -- L["Your own quests as a guide, in a tab of its own: the arrow leads to the nearest one, then the next (/polestar free)."] = "내가 받은 퀘스트를 자체 탭의 가이드로: 화살표가 가장 가까운 퀘스트로, 그다음 퀘스트로 안내합니다 (/polestar free)."
+-- L["Clicking an objective row or NPC heading also targets its NPC outside combat, using the same marking settings as the Target button. This replaces your current target; a failed search clears it."] = "임무 줄이나 NPC 제목을 클릭하면 전투 중이 아닐 때 그 NPC도 대상으로 지정합니다. 징표 설정은 대상 버튼과 같습니다. 현재 대상이 바뀌며, 찾지 못하면 대상이 해제됩니다."
 -- L["The last steps here aren't mapped"] = "이곳의 마지막 몇 걸음은 지도에 없습니다"
 -- L["None of these has a known place to hand it in."] = "이 중 제출 장소가 알려진 퀘스트가 없습니다."
 -- L["Travel time to this hand-in is unknown. Its location is still shown."] = "이 제출 장소까지의 이동 시간을 알 수 없습니다. 위치는 계속 표시됩니다."
