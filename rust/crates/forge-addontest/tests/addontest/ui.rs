@@ -1916,8 +1916,8 @@ fn the_header_menu_picker_new_tab_compact_transparent_lock_destructive_items_ask
 	.remove(0);
 	assert_eq!(
 		out["items"],
-		json!(["Choose guide", "Open in new tab", "All steps", "None to hand in", "Quest log is clean", "Quick settings", "Settings", "Reset window size", "Reset from here", "Reset everything"]),
-		"Skip, the bug and Lookup are in the header, so not in the menu; All steps, its header button not showing here, is; the quest log rows are always there, off when they have nothing to do; #3095's Reset window size in the settings group"
+		json!(["Choose guide", "Open in new tab", "All steps", "None to hand in", "Quest log is clean", "Quick settings", "Settings", "Reset window size", "Copy routing report", "Reset from here", "Reset everything"]),
+		"Skip, the bug and Lookup are in the header, so not in the menu; All steps, its header button not showing here, is; the quest log rows are always there, off when they have nothing to do; #3095's Reset window size in the settings group; Copy routing report beside them"
 	);
 	assert_eq!(out["bar"], json!(["Compact mode", "Transparent", "Lock window", "Pause"]), "the window's toggles are the bar on top");
 	assert_eq!(out["locked"], true);
