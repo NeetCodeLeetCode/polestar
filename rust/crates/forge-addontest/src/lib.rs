@@ -56,6 +56,7 @@
 //!    JS file. A JS helper the file needs that is not here yet (navscene.js, spfnav.js,
 //!    playtest's buildSimPack, the CLI) is ported into this crate as a module first, beside [`dsl`].
 
+pub mod arrowplayer;
 pub mod codex;
 pub mod dsl;
 pub mod locale;

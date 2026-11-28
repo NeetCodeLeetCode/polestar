@@ -52,13 +52,13 @@ end
 "#;
 
 // A tiny generator, so a scenario is the same on every machine.
-struct Rng(u64);
+pub(crate) struct Rng(pub u64);
 impl Rng {
-	fn next(&mut self) -> f64 {
+	pub(crate) fn next(&mut self) -> f64 {
 		self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
 		((self.0 >> 33) as f64) / ((1u64 << 31) as f64)
 	}
-	fn between(&mut self, lo: f64, hi: f64) -> f64 {
+	pub(crate) fn between(&mut self, lo: f64, hi: f64) -> f64 {
 		lo + (hi - lo) * self.next()
 	}
 }
