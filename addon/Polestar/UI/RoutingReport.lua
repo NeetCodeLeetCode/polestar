@@ -173,7 +173,12 @@ local function reorderLines(r, add)
 	add(head)
 	if not r.on then return end
 	local last = r.last
-	if last then
+	if last and last.xp then
+		-- The XP order (behavior.stepReorderXp): the seconds an XP point waits on average, not yards.
+		local per = last.per or 1
+		add(("Reorder XP: best order %s pays %s s sooner · an XP point waits %d s against the guide's %d s · measured %d s ago"):format(
+			stepList(last.order), fixed(last.saved), floor((last.cost or 0) * per + 0.5), floor((last.base or 0) * per + 0.5), last.ago))
+	elseif last then
 		add(("Reorder walk: best order %s saves %s s · %d yd against the guide's %d yd · measured %d s ago"):format(
 			stepList(last.order), fixed(last.saved), floor((last.cost or 0) + 0.5), floor((last.base or 0) + 0.5), last.ago))
 	end

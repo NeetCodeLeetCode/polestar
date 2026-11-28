@@ -2439,6 +2439,14 @@
    "at": [
     "Guide > Window > Dynamic Questing"
    ]
+  },
+  {
+   "id": "behavior.stepReorderXp",
+   "kind": "toggle",
+   "label": "Order the next steps by XP",
+   "at": [
+    "Guide > Window > Dynamic Questing"
+   ]
   }
  ]
 }

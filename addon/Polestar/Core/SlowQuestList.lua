@@ -87,4 +87,8 @@ function List.SlowAt(q, level)
 	return nil
 end
 
+-- The time model the build scores with (data/codex/slow-quests.json, `time`): minutes a kill takes, minutes of
+-- talk at both ends of a quest. The step reorder (Core/StepOrder.lua) counts a step's work with them.
+List.KILL_MINUTES, List.BASE_MINUTES = 0.25, 1
+
 ns.SlowQuestList = List

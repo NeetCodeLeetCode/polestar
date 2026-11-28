@@ -10,10 +10,11 @@ const { ROOT } = require('./paths');
 const xp = require('./game/xp');
 
 const DB_DIR = path.join(ROOT, 'forever-db', 'data');
-// Blizzard's aim for Forever: an ordinary mob dies in 10 to 15 seconds.
-const KILL_MINUTES = 0.25;
-// The talk at each end of a quest.
-const BASE_MINUTES = 1;
+// The time model, in data/codex/slow-quests.json (`time`) so the addon reads the same figures (Core/SlowQuestList.lua,
+// the step reorder's work time): killMinutes, an ordinary mob dying in 10 to 15 seconds (Blizzard's aim for Forever);
+// baseMinutes, the talk at both ends of a quest.
+const LIST_FILE = path.join(ROOT, 'data', 'codex', 'slow-quests.json');
+const { killMinutes: KILL_MINUTES, baseMinutes: BASE_MINUTES } = JSON.parse(fs.readFileSync(LIST_FILE, 'utf8')).time;
 // Quests of 3 levels share one median.
 const BAND = 3;
 // The quests a character of level L does on level: a quest of level L - 3 to L + 2 (the route's own pace at L).

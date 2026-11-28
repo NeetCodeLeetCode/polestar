@@ -91,6 +91,19 @@ test('the guide window\'s menu has a Copy routing report row that opens it', () 
 	assert.deepEqual(out, { found: true, enabled: true, tip: true });
 });
 
+test('with the XP order on, the report gives the seconds an XP point waits, not yards', () => {
+	const out = run(`
+		uistub.setGuide(uistub.elwynn, 3)
+		${STATE}
+		state.reorder = { on = true, live = 3, shown = 5, why = "showing the step that walks least", rest = 0, take = 20, switch = 30, release = 5,
+			last = { ago = 2, n = 3, order = { 5, 3, 4 }, base = 800, cost = 520, saved = 56, xp = true, per = 0.2 }, window = {} }
+		Polestar.Set("behavior.stepReorder", true)
+		UI.ShowRoutingReport()
+		local box = copyBox()
+		emit({ text = box:GetText() })`);
+	assert.ok(out[0].text.split('\n').includes("Reorder XP: best order 5 3 4 pays 56.0 s sooner \u00b7 an XP point waits 104 s against the guide's 160 s \u00b7 measured 2 s ago"), out[0].text);
+});
+
 test('with the reorder and the objective-taking arrow on, the report says what each weighed and chose', () => {
 	const out = run(`
 		uistub.setGuide(uistub.elwynn, 3)
