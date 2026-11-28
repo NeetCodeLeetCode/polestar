@@ -424,8 +424,11 @@ end
 -- has no way for as open (Path.SetTrail, before each ask: the router holds only the last SECONDS of them, never
 -- stored), so a walk from where he has been goes his way. Clear drops them from the router. The gaps found are kept
 -- for /polestar report (Walk.WalkedGaps): where players walk that the maps close. (A table, not locals: the main chunk's locals are near Lua 5.1's 200.)
-local walked = { SPACING = 2, SECONDS = 60, MAX = 300, x = {}, y = {}, t = {}, n = 0, gaps = {}, GAPS = 5 }
-function walked.Note(pc, px, py)
+-- Each place keeps the floor the walk follows under the player (z; false where unknown): where floors stack (the
+-- Undercity's streets and walkways, an inn over its cellar) a place without its height snaps to any of them, and
+-- the trail then "walks" between floors that no ramp joins: a gap the maps do not have.
+local walked = { SPACING = 2, SECONDS = 60, MAX = 300, x = {}, y = {}, z = {}, t = {}, n = 0, gaps = {}, GAPS = 5 }
+function walked.Note(pc, px, py, pz)
 	-- Outdoors only: indoors (a cave, a barrow, a city's halls) floors stack, and a place without its height (Forever's
 	-- client gives none) can't say which one the player stands on.
 	if IsIndoors and IsIndoors() then return end
@@ -437,24 +440,24 @@ function walked.Note(pc, px, py)
 		if dx * dx + dy * dy < walked.SPACING * walked.SPACING then return end
 	end
 	local now = GetTime()
-	local x, y, t = walked.x, walked.y, walked.t
+	local x, y, z, t = walked.x, walked.y, walked.z, walked.t
 	if n >= walked.MAX or (n > 0 and now - t[1] > walked.SECONDS) then
 		local drop = 0
 		while drop < n and (n - drop >= walked.MAX or now - t[drop + 1] > walked.SECONDS) do drop = drop + 1 end
-		for i = 1, n - drop do x[i], y[i], t[i] = x[i + drop], y[i + drop], t[i + drop] end
+		for i = 1, n - drop do x[i], y[i], z[i], t[i] = x[i + drop], y[i + drop], z[i + drop], t[i + drop] end
 		n = n - drop
 	end
 	n = n + 1
-	x[n], y[n], t[n] = px, py, now
+	x[n], y[n], z[n], t[n] = px, py, pz or false, now
 	walked.n = n
 end
 -- Before a walk is asked: his steps (the last SECONDS, whatever goal they were for: where he walked is open either
 -- way) to the router.
 function walked.Use(P, pc)
 	if not (P and P.SetTrail) or walked.c ~= pc then return end
-	local s, x, y = {}, walked.x, walked.y
+	local s, x, y, z = {}, walked.x, walked.y, walked.z
 	for i = 1, walked.n do
-		s[#s + 1], s[#s + 2], s[#s + 3] = x[i], y[i], false
+		s[#s + 1], s[#s + 2], s[#s + 3] = x[i], y[i], z[i]
 	end
 	if #s < 6 then return end
 	local ok, n, gx, gy = pcall(P.SetTrail, pc, s)
@@ -1723,7 +1726,7 @@ end
 function Walk.Aim(pc, px, py, goalC, goalX, goalY, handmade, goalZ, stop, checkedOnly)
 	local P = engine()
 	if P and P.SurfacesAt and pc then track(P, pc, px, py) end
-	if pc then walked.Note(pc, px, py) end
+	if pc then walked.Note(pc, px, py, playerZ(pc) or trackedZ(pc, px, py)) end
 	-- With no observed deck, a flat search can start on any floor under the
 	-- shaft. Drop even an old walk; Travel owns the separate ride instruction.
 	if P and pc and pc == goalC and city.Lift(pc, px, py) and playerZ(pc) == nil then

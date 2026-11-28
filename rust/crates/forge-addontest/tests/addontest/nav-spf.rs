@@ -4555,6 +4555,49 @@ fn t_1650_floor_kept_over_cells_with_no_surface_at_its_level_within_25_yd_of_the
 	assert_eq!(out, json!({ "seed": 40, "blocked": 40, "ridgeNear": 40, "ridgeFar": 75, "back": 40 }));
 }
 
+// The walked trail (#3641) takes the floor the walk follows as each place's height: Forever gives none, and where
+// floors stack a place without one snaps to any of them, so the trail "walked" between floors no ramp joins and the
+// report listed those as gaps in the maps (the Undercity, Tirisfal's map 1420 in a player's report). A place whose
+// floor is not known yet goes in with none, as before.
+#[test]
+fn the_walked_trail_carries_the_followed_floor_of_each_place_none_where_it_is_not_known() {
+	let out = run(&[
+		FLOORS,
+		r#"
+		local r = {}
+		-- A ramp from y -20 (40) to y -60 (60), then a bridge at 60 over the ground (40) from y -60 to -100.
+		fake.surfaces = function(map, x, y)
+			if y <= -20 and y > -60 and x >= -6 and x <= 6 then return { 40 + (-20 - y) / 2 } end
+			if y <= -60 and y >= -100 and x >= -6 and x <= 6 then return { 40, 60 } end
+			return { 40 }
+		end
+		local trails = {}
+		Polestar_NavEngine.SetTrail = function(map, samples)
+			trails[#trails + 1] = samples
+			return 0
+		end
+		nav.place(0, 0)
+		local before = startZ()
+		walk(0, -80)
+		startZ()
+		local s = trails[#trails]
+		local zs, onBridge, last = {}, 0, nil
+		for i = 1, #s, 3 do
+			zs[#zs + 1] = s[i + 2]
+			if s[i + 1] <= -62 and s[i + 2] == 60 then onBridge = onBridge + 1 end
+			last = s[i + 2]
+		end
+		r.last, r.onBridge, r.places = last, onBridge, #zs
+		r.allFalse = true
+		for _, z in ipairs(zs) do if z ~= false then r.allFalse = false end end
+		emit(r)"#,
+	]
+	.concat());
+	assert_eq!(out["last"], 60, "the place on the bridge is on the bridge's floor: {out}");
+	assert!(num(&out["onBridge"]) >= 5.0, "the places along the bridge carry its floor: {out}");
+	assert_eq!(out["allFalse"], false, "{out}");
+}
+
 #[test]
 fn t_234_floor_a_jump_of_30_yd_another_continent_or_a_stale_floor_no_reading_for_2_s_while_moving_is_unknown_again() {
 	let out = run(&[
