@@ -84,7 +84,9 @@ const FAR_QUEST: &str = "w.onQuest(7003, { 6 })";
 
 #[test]
 fn it_is_off_by_default_and_fastest_xp_turns_it_on_and_off() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		local r = { default = Polestar.Get("behavior.routeAdvice") }
 		ready(); Polestar.Set("behavior.routeAdvice", false)
 		look()
@@ -93,7 +95,8 @@ fn it_is_off_by_default_and_fastest_xp_turns_it_on_and_off() {
 		r.on = Polestar.Get("behavior.routeAdvice")
 		Polestar.Set("behavior.fastestXp", false); stub.advance(1)
 		r.off = Polestar.Get("behavior.routeAdvice")
-		emit(r)"#);
+		emit(r)"#,
+	);
 	assert_eq!(out, json!({ "default": false, "card": false, "on": true, "off": false }));
 }
 
@@ -110,31 +113,39 @@ fn a_log_quest_far_off_the_route_is_told_to_be_abandoned_with_its_detour() {
 
 #[test]
 fn abandon_asks_the_game_and_never_abandons_by_itself() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		local asked
 		Polestar.Compat.AskAbandonQuest = function(q) asked = q; return true end
 		ready(); look()
 		local before = asked
 		CT.current.act.run()
-		emit({ before = before or false, asked = asked, stillInLog = stub.world.log[7003] ~= nil })"#);
+		emit({ before = before or false, asked = asked, stillInLog = stub.world.log[7003] ~= nil })"#,
+	);
 	assert_eq!(out, json!({ "before": false, "asked": 7003, "stillInLog": true }));
 }
 
 #[test]
 fn keep_it_is_remembered_for_the_character() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		ready(); look()
 		CT.current.off.run()
 		local r = { kept = Polestar.CharState().routeAdvice[7003] }
 		later(); RAC.Reset(); look()
 		r.again = card()
-		emit(r)"#);
+		emit(r)"#,
+	);
 	assert_eq!(out, json!({ "kept": true, "again": false }));
 }
 
 #[test]
 fn a_quest_is_told_once_for_a_level_and_cards_wait_ten_minutes() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		local r = {}
 		ready(); look()
 		r.first = card() and card().kind
@@ -145,40 +156,50 @@ fn a_quest_is_told_once_for_a_level_and_cards_wait_ten_minutes() {
 		r.laterSameLevel = card()
 		stub.world.setLevel(21); later(); look()
 		r.nextLevel = card() and card().kind
-		emit(r)"#);
+		emit(r)"#,
+	);
 	assert_eq!(out, json!({ "first": "routeadvice", "sameLevel": false, "laterSameLevel": false, "nextLevel": "routeadvice" }));
 }
 
 #[test]
 fn a_quest_taken_in_the_last_ten_minutes_is_left_alone() {
-	let out = run("", r#"
+	let out = run(
+		"",
+		r#"
 		ready()
 		stub.world.accept(7003, { 6 }); stub.advance(1)
 		look()
 		local r = { fresh = card() }
 		later(); look()
 		r.old = card() and card().kind
-		emit(r)"#);
+		emit(r)"#,
+	);
 	assert_eq!(out, json!({ "fresh": false, "old": "routeadvice" }));
 }
 
 #[test]
 fn a_finished_quest_is_never_told_to_be_abandoned() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		ready()
 		stub.world.finish(7003); stub.advance(1)
 		look()
-		emit({ card = card() })"#);
+		emit({ card = card() })"#,
+	);
 	assert_eq!(out["card"], false);
 }
 
 #[test]
 fn no_card_in_a_dungeon_guide() {
-	let out = run(FAR_QUEST, r#"
+	let out = run(
+		FAR_QUEST,
+		r#"
 		ready()
 		E.SetGuide("test/dungeon"); stub.advance(1)
 		look()
-		emit({ card = card() })"#);
+		emit({ card = card() })"#,
+	);
 	assert_eq!(out["card"], false);
 }
 
@@ -207,8 +228,10 @@ function done() return { taken = taken or false, dismissed = dismissed or false 
 
 #[test]
 fn a_missed_pickup_near_the_route_is_taken_and_one_far_from_it_is_left() {
-	let out = run("", &format!(
-		r#"{MISSED}
+	let out = run(
+		"",
+		&format!(
+			r#"{MISSED}
 		local r = {{}}
 		ready()
 		setPickup(30, false); look()
@@ -220,7 +243,9 @@ fn a_missed_pickup_near_the_route_is_taken_and_one_far_from_it_is_left() {
 		r.far = card()
 		CT.current.act.run()
 		r.farDone = done()
-		emit(r)"#));
+		emit(r)"#
+		),
+	);
 	assert_eq!(out["near"]["title"], "You did not pick up Lost Pickup");
 	assert_eq!(out["near"]["act"], "Take it");
 	assert_eq!(out["near"]["off"], "Leave it");
@@ -233,10 +258,14 @@ fn a_missed_pickup_near_the_route_is_taken_and_one_far_from_it_is_left() {
 
 #[test]
 fn a_far_pickup_that_a_later_accept_needs_is_not_told_to_be_left() {
-	let out = run("", &format!(
-		r#"{MISSED}
+	let out = run(
+		"",
+		&format!(
+			r#"{MISSED}
 		ready()
 		setPickup(900, true); look()
-		emit({{ card = card() }})"#));
+		emit({{ card = card() }})"#
+		),
+	);
 	assert_eq!(out["card"], false);
 }

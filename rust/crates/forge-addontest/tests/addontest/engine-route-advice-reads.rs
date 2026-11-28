@@ -81,18 +81,28 @@ fn the_giver_of_a_quest_the_guide_takes_has_a_detour_and_an_ordinary_quest_is_no
 
 #[test]
 fn the_card_tells_a_far_quest_off_the_route_to_be_abandoned_and_a_near_one_nothing() {
-	let far = run(&db(), 20.0, 80.0, r#"
+	let far = run(
+		&db(),
+		20.0,
+		80.0,
+		r#"
 		Polestar.Set("behavior.routeAdvice", true); stub.advance(0.3)
 		local RAC, CT = Polestar.UI.RouteAdviceCard, Polestar.UI.ClassToast
 		RAC.Look(); stub.advance(0.1)
 		local m = CT.current
-		emit({ title = m and m.title or false, lines = m and m.giver or false })"#);
+		emit({ title = m and m.title or false, lines = m and m.giver or false })"#,
+	);
 	assert_eq!(far["title"], "We recommend abandoning Kobold Camp Cleanup");
 	assert!(far["lines"].as_str().unwrap().starts_with("Finishing it adds about "), "{far}");
-	let near = run(&db(), 48.0, 38.0, r#"
+	let near = run(
+		&db(),
+		48.0,
+		38.0,
+		r#"
 		Polestar.Set("behavior.routeAdvice", true); stub.advance(0.3)
 		local RAC, CT = Polestar.UI.RouteAdviceCard, Polestar.UI.ClassToast
 		RAC.Look(); stub.advance(0.1)
-		emit({ card = CT.current and CT.current.title or false })"#);
+		emit({ card = CT.current and CT.current.title or false })"#,
+	);
 	assert_eq!(near["card"], false);
 }
