@@ -297,6 +297,7 @@ end, L["Print your map and position as guide lines"])
 ns.RegisterCommand("questlog", function() ns.Fire("SHOW_QUEST_ROOM") end, L["List the quests in your log the route never hands in"])
 
 ns.RegisterCommand("report", function() ns.Fire("SHOW_REPORT") end, L["Report a problem with the step on screen"])
+ns.RegisterCommand("routing", function() ns.Fire("SHOW_ROUTING_REPORT") end, L["Copy a report of why the arrow and the steps were chosen"])
 ns.RegisterCommand("discord", function() ns.Fire("SHOW_DISCORD") end, L["The invite to the Polestar Discord"])
 
 -- What Polestar's addons hold in memory, as the client counts it, before and

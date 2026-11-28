@@ -3,8 +3,11 @@
 -- and focused, and how to copy it. The ✕ and Escape close it.
 -- UI.ShowCopy(title, text, opts), or SHOW_COPY(title, text) from Core.
 -- opts: { icon = media name shown before the title, iconColor = palette
--- name (default text), hint = the line above the box }; the Polestar
--- Discord's invite comes with its mark (UI/Report.lua).
+-- name (default text), hint = the line above the box, view = the most
+-- lines the box shows at once, width = the window's width }; the Polestar
+-- Discord's invite comes with its mark (UI/Report.lua). A text of more
+-- lines than `view` scrolls in a well of that height (the routing report,
+-- UI/RoutingReport.lua); a shorter one is as tall as it is.
 --
 -- Built on first use; colours are Theme tokens only.
 
@@ -16,6 +19,7 @@ local WIDTH = 360
 local PAD = 24
 local HEAD_H = 56
 
+local VIEW_LINE = 12 -- the scrolling box's small font: points of one line
 local F
 
 local function build()
@@ -68,7 +72,10 @@ end
 -- The box is made for the number of lines it holds.
 local function box(lines)
 	local cur = rawget(F, "Box")
-	if cur and cur.psLines == lines then return cur end
+	if cur and cur.psLines == lines then
+		cur:Show()
+		return cur
+	end
 	if cur then cur:Hide() end
 	F.boxes = F.boxes or {}
 	local b = F.boxes[lines]
@@ -85,12 +92,42 @@ local function box(lines)
 	return b
 end
 
+-- The scrolling box for a long text: a well, its scroll view and the copy box in it (the report window's
+-- pattern, UI/Report.lua), built once; `width` is the window's.
+local function scrollBox(width)
+	if not rawget(F, "ScrollWell") then
+		local well = CreateFrame("Frame", nil, F)
+		local sf = W.Scroll(well)
+		sf:SetAllPoints(well)
+		local b = W.ScrollChild(sf, W.CopyBox(sf, { lines = 2, well = well }))
+		Theme.Font(b, "small")
+		b:SetScript("OnEscapePressed", function() F:Hide() end)
+		well:EnableMouse(true)
+		well:SetScript("OnMouseUp", function() W.SelectCopy(b) end)
+		-- The text in the box's font at its inner width: what its height is measured on. Hidden, never alpha 0.
+		local m = W.Text(F, "small", "text")
+		m:SetJustifyH("LEFT")
+		m:SetWordWrap(true)
+		m:SetNonSpaceWrap(true)
+		m:Hide()
+		F.ScrollWell, F.ScrollView, F.ScrollBox, F.Measure = well, sf, b, m
+	end
+	F.ScrollWell:SetWidth(width - PAD * 2)
+	F.ScrollBox:SetWidth(width - PAD * 2)
+	F.Measure:SetWidth(width - PAD * 2 - 20)
+	return F.ScrollBox
+end
+
 function UI.ShowCopy(title, text, opts)
 	if not F then build() end
 	opts = opts or {}
 	text = text or ""
 	local lines = 1
 	for _ in text:gmatch("\n") do lines = lines + 1 end
+	local width = opts.width or WIDTH
+	F:SetWidth(width)
+	F.Band:SetTexCoord(Theme.BandCoords(width - 2, HEAD_H))
+	F.Hint:SetWidth(width - PAD * 2)
 	F.Title:SetText(title or "")
 	F.Title:ClearAllPoints()
 	F.Title:SetPoint("RIGHT", F.Close, "LEFT", -8, 0)
@@ -104,11 +141,35 @@ function UI.ShowCopy(title, text, opts)
 		F.Title:SetPoint("LEFT", F.Head, "LEFT", PAD, 0)
 	end
 	F.Hint:SetText(opts.hint or L["Selected for you: copy it with Ctrl+C (Cmd+C on a Mac), then press Escape."])
-	local b = box(lines)
-	b:ClearAllPoints()
-	b:SetPoint("TOPLEFT", F.Hint, "BOTTOMLEFT", 0, -10)
-	W.SetCopyText(b, text)
-	F:SetHeight(HEAD_H + 12 + F.Hint:GetStringHeight() + 10 + b:GetHeight() + PAD)
+	local scrolls = opts.view and lines > opts.view
+	local cur = rawget(F, "Box")
+	if cur then cur:Hide() end
+	if rawget(F, "ScrollWell") then F.ScrollWell:Hide() end
+	local b, height
+	if scrolls then
+		b = scrollBox(width)
+		F.ScrollWell:ClearAllPoints()
+		F.ScrollWell:SetPoint("TOPLEFT", F.Hint, "BOTTOMLEFT", 0, -10)
+		F.ScrollWell:Show()
+		b:Show()
+		W.SetCopyText(b, text)
+		-- As tall as the wrapped text (never under a line per line of it), the well a view of at most opts.view lines.
+		F.Measure:SetText(text)
+		local content = math.floor(math.max(F.Measure:GetStringHeight(), lines * VIEW_LINE) + 16 + 0.5)
+		b:SetHeight(content)
+		height = math.min(content, opts.view * VIEW_LINE + 16)
+		F.ScrollWell:SetHeight(height)
+		W.SetScrollContent(F.ScrollView, content, height)
+		W.ScrollTo(F.ScrollView, 0)
+	else
+		b = box(lines)
+		b:ClearAllPoints()
+		b:SetPoint("TOPLEFT", F.Hint, "BOTTOMLEFT", 0, -10)
+		b:SetWidth(width - PAD * 2)
+		W.SetCopyText(b, text)
+		height = b:GetHeight()
+	end
+	F:SetHeight(HEAD_H + 12 + F.Hint:GetStringHeight() + 10 + height + PAD)
 	F:Show()
 	F:Raise()
 	W.SelectCopy(b)
