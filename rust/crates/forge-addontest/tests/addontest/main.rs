@@ -268,6 +268,8 @@ mod engine_while_here;
 mod engine_zone_walk;
 #[path = "faction-guides.rs"]
 mod faction_guides;
+#[path = "fastest-xp.rs"]
+mod fastest_xp;
 #[path = "flight-map-notice.rs"]
 mod flight_map_notice;
 #[path = "free-mode.rs"]

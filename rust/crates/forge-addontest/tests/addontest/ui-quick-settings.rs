@@ -62,7 +62,7 @@ fn the_menu_s_entry_before_options_opens_the_popover_by_the_button_with_the_mid_
 	assert_eq!(out["anchored"], true, "it opens by the menu button");
 	assert_eq!(out["relPoint"], "BOTTOMRIGHT");
 	assert_eq!(out["width"], 280);
-	assert_eq!(out["keys"], json!(["ui.locked", "ui.opacity", "nav.arrow", "behavior.autoAccept", "behavior.autoTurnin", "nav.routeLines"]));
+	assert_eq!(out["keys"], json!(["behavior.fastestXp", "ui.locked", "ui.opacity", "nav.arrow", "behavior.autoAccept", "behavior.autoTurnin", "nav.routeLines"]));
 	assert_eq!(out["rowH"], 32);
 	assert_eq!(out["labels"], json!(["Lock window", "Opacity", "Auto turn-in"]));
 	assert_eq!(out["all"], "All settings\u{2026}");

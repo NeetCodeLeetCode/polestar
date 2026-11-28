@@ -130,7 +130,8 @@ end
 function settingControls()
 	local out = {}
 	for _, c in ipairs(O.AllControls()) do
-		if c.kind ~= "button" and c.kind ~= "binding" and (c.key or (c.get and c.set)) then out[#out + 1] = c end
+		-- Fastest XP writes the other settings when it turns on (fastest-xp.rs), so a walk over every control cannot set it.
+		if c.kind ~= "button" and c.kind ~= "binding" and c.key ~= "behavior.fastestXp" and (c.key or (c.get and c.set)) then out[#out + 1] = c end
 	end
 	return out
 end

@@ -1861,6 +1861,7 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- sources, a review date and a code; a `low-drop` row the forever-db score says is fast is dropped by the build). Never
 -- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
 -- done, nor one a quest not on the list needs (Own.slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
+-- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")

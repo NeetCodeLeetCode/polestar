@@ -115,6 +115,18 @@ return {
 		["behavior.skipSlow"] = { prepare = function() open("test/slow") end, probe = function()
 			return { slow = E.GetStepView(1).goals[1].status, other = E.GetStepView(2).goals[1].status }
 		end },
+		-- Fastest XP (fastest-xp.rs) writes Skip slow quests: Guile of the Raptor is left out while it is on. It writes
+		-- other settings, which a profile with only itself at the default, or a reload of only itself, keeps as they were.
+		["behavior.fastestXp"] = { once = true, reload = false, prepare = function() open("test/slow") end, probe = function()
+			return { slow = E.GetStepView(1).goals[1].status, other = E.GetStepView(2).goals[1].status }
+		end, cleanup = function() Polestar.Set("behavior.skipSlow", false) end },
+		-- Skip slow quests turned off by hand while Fastest XP is on: the button writes its value again.
+		["Guide:Put Fastest XP's settings back"] = { press = true, prepare = function()
+			open("test/slow")
+			Polestar.Set("behavior.fastestXp", true); flush()
+			Polestar.Set("behavior.skipSlow", false); flush()
+		end, probe = function() return E.GetStepView(1).goals[1].status end,
+			cleanup = function() Polestar.Set("behavior.fastestXp", false) end },
 		-- A deathskip to Sen'jin Village: the guide's step, or passed.
 		["behavior.deathskips"] = { prepare = function() open("test/die") end, probe = function()
 			return { at = E.GetLiveStep(), status = E.GetStepView(1).goals[1].status }

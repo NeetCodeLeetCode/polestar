@@ -17,7 +17,7 @@ const ALL = ['Core/Core.xml', 'Theme/Theme.xml', 'Nav/Nav.xml', 'Quests/Quests.x
 
 // The picks of the settings review (docs/superpowers/specs/2026-11-17-settings-ia-review.md §5).
 const PICKS = {
-	guide: ['behavior.whileHere', 'nav.arrow', 'nav.travel', 'nav.routeLines', 'nav.routeStyle',
+	guide: ['behavior.fastestXp', 'behavior.whileHere', 'nav.arrow', 'nav.travel', 'nav.routeLines', 'nav.routeStyle',
 		'behavior.autoSelectGuide', 'behavior.guideEnd', 'behavior.routeChoice', 'behavior.skipGrey', 'behavior.dungeons'],
 	questing: ['behavior.autoAccept', 'behavior.autoTurnin', 'qol.skipGossip', 'qol.rewardHighlight', 'qol.rewardAutoPick',
 		'qol.rewardEquip', 'qol.itemButton', 'qol.targetButton', 'qol.questTooltips', 'party.show'],

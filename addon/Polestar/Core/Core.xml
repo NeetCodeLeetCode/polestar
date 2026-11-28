@@ -27,6 +27,7 @@
 	<Script file="ClassTrainers.lua"/>
 	<Script file="ClassQuestList.lua"/>
 	<Script file="SlowQuestList.lua"/>
+	<Script file="FastestXP.lua"/>
 	<Script file="ProfessionTrainers.lua"/>
 	<Script file="Closes.lua"/>
 	<Script file="Unlocks.lua"/>
