@@ -42,6 +42,7 @@ ns.RegisterDefaults("behavior", {
 	offerClassQuests = true, -- offer a Class guide in a tab when it opens for the character (QoL/ClassQuests.lua)
 	groupQuests = "ask", -- "ask" | "do" | "skip": the answer at a group quest (`when group`) the player has not answered (Own.groupAnswer)
 	dungeons = "skip", -- "skip" | "ask" | "run": "Dungeons in my route", the answer for a dungeon (`when dungeon`) the character has not answered one by one (Own.dungeonAnswer)
+	skipSlow = false, -- leave out the quests of Core/SlowQuestList.lua, ones that cost far more time than they pay (Own.slowSkipped)
 	rareDrops = "optional", -- "optional" | "chase" | "hide": the quests an item starts, optional in the guides (Own.itemStart): leave as written, lead the arrow to the drop, or leave out until the item drops (Own.rareHidden, Own.chased)
 	lostQuests = "ask", -- "ask" | "back" | "skip": a quest the route had passed that leaves the log (abandoned, failed): the window asks, or the guide goes back for it or skips it at once (Own.holdLost)
 	suggestFrom = "guides", -- pack id the suggestions come from (Guides.SuggestSource); ours fill in
@@ -447,6 +448,51 @@ function Own.everyStep(g)
 	return g ~= nil and not (g.category == nil or g.category == "Leveling")
 end
 
+-- behavior.skipSlow ("Skip slow quests"): the quests of Core/SlowQuestList.lua
+-- left out of a leveling guide, all their goals (goalApplies, as an escort the
+-- player skips). One stays when a quest still worth doing needs it: the
+-- prerequisites of every accept of the guide and the guides after it that is
+-- not on the list, down the chain (Own.needsFrom, as chainNeeds does for grey
+-- quests). It does not depend on the level, so it is cached with the chain.
+local function slowNeeds(g)
+	local chain = Own.chainOf(g)
+	local c = chainNeedsCache[g.steps]
+	local set = c.slow
+	if set then return set end
+	local List, open = ns.SlowQuestList, {}
+	for _, goal in ipairs(chain.accepts) do
+		if not List.Slow(goal.quest) then open[#open + 1] = goal end
+	end
+	set = Own.needsFrom(chain.pres, open)
+	c.slow = set
+	return set
+end
+
+-- Whether "Skip slow quests" leaves quest q of the loaded guide out: the
+-- setting on, a leveling guide, q on the list, neither in the log nor done,
+-- and no quest worth doing that needs it. Never a class quest (goal: its goal, when known). A guide down the chain not loaded
+-- leaves its needs unknown, so the quest stays (as Engine.GreyLeftOut).
+function Own.slowSkipped(q, goal)
+	if not (q and guide and ns.Get("behavior.skipSlow")) then return false end
+	local List = ns.SlowQuestList
+	if not (List and List.Slow(q)) or Own.everyStep(guide) then return false end
+	-- Never a class quest: a goal for some classes only, or a quest the database opens to some classes only.
+	-- (A Class guide is not a leveling guide: Own.everyStep.)
+	local only = goal and goal.only
+	if type(only) == "table" and type(only.classes) == "table" and #only.classes > 0 then return false end
+	if Own.classQuest(q) then return false end
+	local C = Compat()
+	if C.IsOnQuest(q) or questDone(q) or Own.chainOf(guide).unknown then return false end
+	return slowNeeds(guide)[q] == nil
+end
+
+-- Why a quest of the list is slow, in the guide window's "left out here" line (the row's code).
+function Own.slowText(code)
+	if code == "low-drop" then return L["Its item drops too rarely for what it pays (Skip slow quests)"] end
+	if code == "slow-respawn" then return L["Its mobs respawn too slowly for what it pays (Skip slow quests)"] end
+	return L["Pays too little XP for its time (Skip slow quests)"]
+end
+
 -- behavior.skipGrey: an accept for a quest already grey for the character
 -- (Own.greyOut: the client's grey, paying less than full XP; or a `turnin ...
 -- direct`, handed in with no accept, the compiler giving it its quest's level
@@ -756,6 +802,8 @@ local function goalApplies(goal)
 	if not Guides.Matches(goal.only, player) or Own.barred(goal) or Own.gone(goal) then return false end
 	-- An escort the player chose to skip (Own.escortChoice, #3439): its accept, work and hand-in are out.
 	if goal.quest and Own.escortChoice(goal.quest) and Own.groupAnswer(goal.quest) == "skip" then return false end
+	-- A quest "Skip slow quests" leaves out (Own.slowSkipped): its accept, work and hand-in are out.
+	if goal.quest and Own.slowSkipped(goal.quest, goal) then return false end
 	-- The item a quest starts from is collected only for that quest (#1531),
 	-- and so is one it works with (Own.usedBy, #2670).
 	local starts = goal.t == "collect" and not goal.quest and guide and layoutOf(guide).starters[goal] or Own.usedBy(goal)
@@ -13753,7 +13801,7 @@ end
 -- from an earlier guide (Own.hiddenAt). Never a step or goal for another class or race
 -- (`only`), a dungeon run not taken (Own.dungeonHidden), a quest done, or a
 -- goal with no reason the engine knows. -> { { quest, title, kind ("catchup" |
--- "grey" | "pre" | "closed" | "level" | "skipped" | "when"), text, fix = nil |
+-- "grey" | "slow" | "pre" | "closed" | "level" | "skipped" | "when"), text, fix = nil |
 -- { kind = "chain", quest } (Lookup's guide to the quest through what it
 -- needs) | { kind = "skipGrey" } (turn the setting off), step }, ... }.
 -- Kept per step for the evaluation (the window asks it on every refill).
@@ -13798,6 +13846,8 @@ function Engine.LeftOutHere(i, alone)
 		if a and greyNeed(a) == false then
 			return add(s, goal, "grey", L["Grey for you: pays %d%% XP (Skip grey quests)"]:format(share(a.qlvl)), { kind = "skipGrey" })
 		end
+		-- Left out by Skip slow quests (Own.slowSkipped): the code of its row says why.
+		if Own.slowSkipped(q) then return add(s, goal, "slow", Own.slowText(ns.SlowQuestList.Slow(q))) end
 		local u = unavailableFor(goal)
 		if not u then return end
 		-- On the step itself only an accept waiting for a level is out of sight (goalView).
@@ -19581,7 +19631,7 @@ ns.On("SETTING_CHANGED", function(path)
 		Own.leftOut, Own.leftOutWhy = {}, {}
 		if guide then Own.applyEarlier(guide.id) end
 	end
-	if path == "behavior.groupQuests" or path == "behavior.deathskips" or path == "behavior.skipGrey" then requestUpdate() end
+	if path == "behavior.groupQuests" or path == "behavior.deathskips" or path == "behavior.skipGrey" or path == "behavior.skipSlow" then requestUpdate() end
 end)
 
 -- A quest that left the log while the window asks (Engine.LostQuestion) is
