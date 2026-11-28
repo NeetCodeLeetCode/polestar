@@ -190,6 +190,8 @@ mod engine_placement_sync;
 mod engine_placement_undo;
 #[path = "engine-professions.rs"]
 mod engine_professions;
+#[path = "engine-rare-drops.rs"]
+mod engine_rare_drops;
 #[path = "engine-repeatable.rs"]
 mod engine_repeatable;
 #[path = "engine-reset.rs"]
