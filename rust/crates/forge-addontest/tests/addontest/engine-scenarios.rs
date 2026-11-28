@@ -309,7 +309,9 @@ fn probe_ablation() {
 		let mut xp = base.clone().with(FASTEST);
 		xp.lua = "Polestar.Set(\"behavior.stepReorderXp\", true); stub.advance(0.6)\n".into();
 		arms.push(("mode plus XP order".into(), xp));
-		for (name, s) in arms {
+		// SCENARIO_ARMS=defaults,mode,XP order: only the arms whose name holds one of these words (a name that is one of them, for "mode").
+		let want: Vec<String> = std::env::var("SCENARIO_ARMS").map(|v| v.split(',').map(String::from).collect()).unwrap_or_default();
+		for (name, s) in arms.into_iter().filter(|(n, _)| want.is_empty() || want.iter().any(|w| n == w || (w != "mode" && n.contains(w.as_str())))) {
 			let m = play(&s);
 			eprintln!(
 				"{:<18} {:<24} {:>5.0}s lv{} xp {:>7.0} yd {:>6.0} hand-ins {:>3.0} kills {:>4.0} grind {:>5.0} xp  {}",
