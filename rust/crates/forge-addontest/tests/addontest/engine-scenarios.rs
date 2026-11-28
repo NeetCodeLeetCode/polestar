@@ -159,6 +159,8 @@ pub(crate) const CHARS: &[(&str, &str, &str, &str, u32, &str)] = &[
 
 /// Life: random events for `secs` seconds from `seed`, a gap of about 10 minutes between them. `kinds` picks from
 /// "die", "wander", "afk", "abandon", "level", "recalibrate", "toggle".
+// The angles are drawn up to 6.28 on purpose: a seed keeps its scenario when the number changes.
+#[allow(clippy::approx_constant)]
 pub(crate) fn events(seed: u64, secs: u32, kinds: &[&str]) -> String {
 	let mut rng = Rng(seed * 2654435761 + 99);
 	let mut at = 120.0;
@@ -189,8 +191,6 @@ pub(crate) fn events(seed: u64, secs: u32, kinds: &[&str]) -> String {
 
 /// One scenario played twice, on the same seed: the guide's order (defaults) and Fastest XP.
 pub(crate) struct Pair {
-	pub name: String,
-	pub seed: u64,
 	pub d: Value,
 	pub f: Value,
 }
@@ -201,7 +201,7 @@ pub(crate) fn pair(c: &(&'static str, &'static str, &'static str, &'static str, 
 	s.events = events(seed, secs, kinds);
 	let d = play(&s);
 	let f = play(&s.clone().with(FASTEST));
-	Pair { name: c.0.to_string(), seed, d, f }
+	Pair { d, f }
 }
 
 fn flag(m: &Value) -> String {
@@ -225,7 +225,7 @@ fn flag(m: &Value) -> String {
 /// no class step is left out for the mode, and the arrow does not flip back and forth.
 fn assert_rules(name: &str, m: &Value) {
 	assert!(m["stuck"].is_null(), "{name}: stuck {}", m["stuck"]);
-	assert!(m["breaks"].as_object().map_or(true, |b| b.is_empty()) && m["breaks"].as_array().map_or(true, |b| b.is_empty()), "{name}: breaks {}", m["breaks"]);
+	assert!(m["breaks"].as_object().map_or(0, |b| b.len()) + m["breaks"].as_array().map_or(0, |b| b.len()) == 0, "{name}: breaks {}", m["breaks"]);
 	assert!(num(m, "reversals") <= 1.0, "{name}: {} reversals", num(m, "reversals"));
 	assert!(num(m, "cpuMax") < 0.25, "{name}: one update took {:.0} ms", num(m, "cpuMax") * 1000.0);
 }
