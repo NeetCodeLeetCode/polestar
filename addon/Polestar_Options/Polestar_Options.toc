@@ -42,6 +42,7 @@ Rares\Options.lua
 Talents\Options.lua
 Alts\Options.lua
 Quests\Options.lua
+UI\FastestXPOptions.lua
 Gear\Options.lua
 Theme\SkinPicker.lua
 UI\Options.lua
@@ -59,3 +60,4 @@ UI\Looks\Trackers.lua
 UI\Movers.lua
 UI\Grouped.lua
 UI\Essentials.lua
+UI\FastestXPEssentials.lua

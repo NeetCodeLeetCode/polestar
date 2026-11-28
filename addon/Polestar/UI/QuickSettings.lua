@@ -52,7 +52,13 @@ local function build()
 	pop.rows = {}
 	local y = W.CARD_HEADER + 1
 	for _, c in ipairs(QS.ROWS) do
-		if ns.GetDefault(c.key) ~= nil then
+		if c.kind == "button" then
+			-- A one-tap action beside the switches (kind = "button", id, label, onClick).
+			local b = W.Button(pop, c.label, c.onClick, { width = WIDTH - 32 })
+			b:SetPoint("TOP", pop, "TOPLEFT", WIDTH / 2, -(y + 4))
+			y = y + ROW_H + 8
+			pop.rows[c.id] = b
+		elseif ns.GetDefault(c.key) ~= nil then
 			local w
 			if c.kind == "slider" then
 				w = W.Slider(pop, c.label, c.key, c.min, c.max, c.step, c.format, c.help)

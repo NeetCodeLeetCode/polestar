@@ -1974,6 +1974,8 @@ end
 local RARE_MODES = { optional = true, chase = true, hide = true }
 local function rareMode()
 	local mode = ns.Get("behavior.rareDrops")
+	-- Fastest XP's "hide" is for level-range guides only (Own.fastOut).
+	if mode == "hide" and Own.fastOut() then return "optional" end
 	return RARE_MODES[mode] and mode or "optional"
 end
 
@@ -17045,6 +17047,16 @@ function Own.hereOwners(Plan, m, n)
 	end
 end
 
+-- Fastest XP (Core/FastestXP.lua) is for level-range guides. In any other guide (a class, dungeon, item or
+-- profession guide) the guide keeps its own way: the arrow takes no objective by itself and rare-drop quests
+-- stay as the guide writes them. The step reorder already moves leveling guides only.
+function Own.fastOut()
+	local FX = ns.FastestXP
+	return FX ~= nil and guide ~= nil and not Own.leveling(guide) and FX.On()
+end
+-- Whether the open guide is a level-range guide (Quick settings, /polestar fast).
+function Engine.IsLeveling() return guide ~= nil and Own.leveling(guide) end
+
 -- behavior.whileHereAim: the arrow takes a "While you're here" objective line by itself,
 -- as if the player had clicked it. Of the objective lines shown (Own.hereOn) the
 -- ones measured are scored together (ns.StopPlanner): every order of every few of them, by
@@ -17064,7 +17076,7 @@ end
 -- player dismisses it. True when the arrow took a line or went back to the guide.
 function Own.hereAutoAim(c, px, py)
 	local Plan = ns.StopPlanner
-	if not (Plan and ns.Get("behavior.whileHereAim")) then
+	if not (Plan and ns.Get("behavior.whileHereAim")) or Own.fastOut() then
 		Own.autoGoal = nil
 		return false
 	end

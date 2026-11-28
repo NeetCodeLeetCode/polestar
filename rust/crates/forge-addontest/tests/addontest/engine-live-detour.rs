@@ -465,3 +465,17 @@ fn a_warrior_objective_is_a_detour_for_a_warrior_and_never_for_a_druid() {
 	// Only the wolves: the Druid walks 800 yd (5 yd short of them) and no objective of the Warrior's is aimed.
 	assert_eq!(druid, vec![json!(["1:1", 790])]);
 }
+
+// Fastest XP (Core/FastestXP.lua) writes whileHereAim, and is for level-range guides only (Own.fastOut): in a Class
+// guide the arrow walks the guide as written, in a leveling guide it takes the stop the guide comes back for.
+#[test]
+fn fastest_xp_takes_the_stop_in_a_leveling_guide_and_leaves_a_class_guide_as_written() {
+	let g = near("", OFF_THE_WAY, "");
+	let class = g.replacen("pack = \"test\",", "pack = \"test\", category = \"Class\",", 1);
+	let set = format!("{XP}; XP[7] = 1\nPolestar.Set(\"behavior.fastestXp\", true); flush()");
+	let leveling = run(&g, &set, r#"emit(follow(300))"#);
+	let task = run(&class, &set, r#"emit({ follow(300), Polestar.Get("behavior.whileHereAim") })"#);
+	assert_eq!(leveling[0][0], json!("2:1 1:1"), "the stop the guide comes back for is taken first");
+	assert_eq!(task[0][0][0], json!("1:1 2:1"), "a Class guide is walked as written");
+	assert_eq!(task[0][1], json!(true), "the setting itself is still written");
+}

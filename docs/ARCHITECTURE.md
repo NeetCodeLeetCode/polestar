@@ -1866,6 +1866,7 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- it asks, over the minutes of its work, as a share of that level's XP bar) against the median of the quests a character
 -- of that level does, and lists the level a quest first falls under `level.threshold` of it, at `level.fromGap` levels over
 -- the quest or more. The walk is not in the data, so the rate is an upper bound.
+-- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")

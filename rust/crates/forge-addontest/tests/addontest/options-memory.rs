@@ -34,12 +34,12 @@ const LOGIN_BASE: f64 = 11003.0;
 /// `Own` at 512 keys, the class cards' 1,034 class quests).
 const LOGIN: f64 = 15330.0;
 // The row "Order the next steps by XP" took the figures to 2,732 loaded, 4,637 opened and 5,876 peak (next: 2,475, 4,351,
-// 5,619): the page's tables passed a power of two again. Each budget is that figure plus 3 %.
+// 5,619): the page's tables passed a power of two. The fork's "Fastest XP" switch, one more key of the behavior section
+// (Core/FastestXP.lua), lands in the same tables: 2,732, 4,609 and 5,883 without that row. Each budget is the larger
+// figure plus 3 %.
 const LOADED: f64 = 2814.0;
-// The fork's "Reorder the next steps" row took the opened figure to 4,345 KiB on the runner (4,193 on next f5bd74406e):
-// the first page's row table passed a power of two. 4,345 plus 3 %.
 const OPENED: f64 = 4776.0;
-const PEAK: f64 = 6052.0;
+const PEAK: f64 = 6059.0;
 
 fn n(v: &Value) -> f64 {
 	v.as_f64().unwrap_or_else(|| panic!("not a number: {v}"))
