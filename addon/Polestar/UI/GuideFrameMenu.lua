@@ -147,6 +147,10 @@ ns.UI.GuideFrame.Part(function(GF)
 		if not inHeader("Report") then
 			add({ text = L["Report a problem"], icon = "bug", onClick = function() UI.ShowReport() end })
 		end
+		-- Why the arrow and the window chose what they did, as text to copy (UI/RoutingReport.lua).
+		add({ text = L["Copy routing report"], icon = "layers", disabled = not UI.ShowRoutingReport,
+			tip = L["Opens a report of what the arrow and the step order weighed, with your settings, selected for Ctrl+C. It holds no character name, realm, guild, account, party names or chat."],
+			onClick = function() UI.ShowRoutingReport() end })
 		-- The flight games (Maps/Arcade.lua): the chosen one, else the first there.
 		local game = ns.Arcade and ns.Arcade.MenuGame()
 		if game then

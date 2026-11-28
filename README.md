@@ -189,7 +189,9 @@ Good to know:
   there if you're not in the Discord yet. Have a GitHub account?
   **Open on GitHub** pre-fills a new issue with your report. `/polestar report`
   opens the window too, and [issues](https://github.com/fitzforge/polestar/issues)
-  are welcome as well. The release's `SHA256SUMS` holds the zips' checksums.
+  are welcome as well. **Copy routing report** in the guide menu (or `/polestar routing`)
+  copies why the arrow and the steps were chosen, with no player names.
+  The release's `SHA256SUMS` holds the zips' checksums.
 
 ## What it is
 
