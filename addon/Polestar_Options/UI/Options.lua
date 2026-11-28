@@ -327,6 +327,10 @@ local BUILTIN = {
 					search = "arrow, detour, seconds, out of the way, nearby objective",
 					disabled = function() return not (ns.Get("behavior.whileHere") and ns.Get("behavior.whileHereAim")) end },
 			} },
+		-- 0.4.4's live step reorder (Engine Own.orderTick): off by default.
+		{ kind = "toggle", key = "behavior.stepReorder", label = L["Reorder the next steps"], new = "0.4.4",
+			help = L["When the next few steps of the guide can be done in an order that walks less, the window shows the one to do first. The guide, its steps and your progress stay as they are, and a step that needs another one, a flight, a dungeon or a timed quest keeps its place."],
+			search = "reorder, steps, order, route, shortest, dynamic, out of order, next steps, walk less" },
 		-- 0.3.7's flight paths you pass (Engine Own.hereBuild).
 		{ kind = "toggle", key = "behavior.whileHereFlights", label = L["Flight paths you pass"],
 			help = L["Also a friendly flight master near you whose flight path you haven't learned yet. Learning it ticks the guide's later step for it too."],

@@ -55,6 +55,7 @@ ns.RegisterDefaults("behavior", {
 	whileHereRepairPercent = 30, -- ... repair when an equipped piece is under this share of its durability (0-90; 0: never)
 	whileHereAim = false, -- the arrow leads to a nearby objective of a later step by itself when it costs few seconds off the way (Own.hereAutoAim)
 	whileHereAimSeconds = 15, -- seconds of extra walking such a detour may cost (5-60)
+	stepReorder = false, -- the window shows the next of the guide's steps that walks least first (Own.orderTick, Core/StepOrder.lua)
 	whileHereSound = true, -- a soft chime for each line that appears, at least 5 s apart (UI/WhileHere.lua)
 	whileHereStepKey = true, -- the step key also targets the lines' mobs, after the step's own (QoL/Buttons.lua, Buttons.HereNames)
 })
@@ -9756,6 +9757,8 @@ local function checkArrival()
 		Own.currentGoal(current, groups, focus)
 		if Own.nearMoved then hit = true end
 	end
+	-- The next steps in the order that walks least (behavior.stepReorder).
+	if Own.orderTick(c, px, py) then hit = true end
 	-- "While you're here": the nearest quick objective of a later step.
 	if Own.hereTick(c, px, py) then hit = true end
 	if hit then requestUpdate() end
@@ -9791,6 +9794,8 @@ local function updateTicker()
 	-- (Own.hereLater) counts as candidates: the poll starts with the
 	-- evaluation, as when the build ran inside it, and runs that build first
 	-- if it comes before it (Own.hereTick).
+	-- The reorder looks at where the player is for as long as the guide has steps to move (Own.orderTick).
+	if not need then need = guide ~= nil and computed ~= nil and ns.Get("behavior.stepReorder") == true end
 	if not need then need = Own.hereQueued or Own.hereAllN > 0 or Own.hereOnN > 0 or Own.hereFlyN > 0 or Own.hereGatherN > 0 or Own.hereVendorN > 0 end
 	if need and not ticker then
 		ticker = ns.NewTicker(ARRIVAL_POLL, checkArrival)
@@ -10367,22 +10372,19 @@ end
 -- (On Own: the main chunk is at 200 locals.)
 Own.ROUTE_STEPS = 8
 Own.ROUTE_TIE = 15 -- seconds of detour that count as no difference
+Own.routeSteps = {}
 function Own.routePoints()
 	local pts = {}
 	local from = computed or current
 	if not (guide and from) then return pts end
-	local seen = 0
-	for s = from, #guide.steps do
-		local step = guide.steps[s]
-		if stepApplies(step) then
-			for g, goal in ipairs(step.goals) do
-				if goalApplies(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
-					pts[#pts + 1] = { map = goal.map, x = goal.x, y = goal.y, f = goal.f, goal = goal }
-					break
-				end
+	local steps = Own.routeSteps
+	for k = 1, Own.orderSteps(steps, from, Own.ROUTE_STEPS) do
+		local s = steps[k]
+		for g, goal in ipairs(guide.steps[s].goals) do
+			if goalApplies(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
+				pts[#pts + 1] = { map = goal.map, x = goal.x, y = goal.y, f = goal.f, goal = goal }
+				break
 			end
-			seen = seen + 1
-			if seen >= Own.ROUTE_STEPS then break end
 		end
 	end
 	return pts
@@ -16493,7 +16495,7 @@ end
 -- The world points of the guide's steps after the live one (Own.routePoints without its first),
 -- { continent, x, y, goal }, kept until the step or the quest log changes.
 function Own.hereChain()
-	local key = (guide and guide.id or "") .. ":" .. tostring(computed or current) .. ":" .. tostring(Own.logStamp)
+	local key = (guide and guide.id or "") .. ":" .. tostring(computed or current) .. ":" .. tostring(pin) .. ":" .. tostring(Own.logStamp)
 	if Own.autoChainKey == key then return Own.autoChain end
 	Own.autoChainKey = key
 	local list, pts = {}, Own.routePoints()
@@ -16640,9 +16642,15 @@ function Engine.Recalibrate()
 	aim = nil
 	Own.herePickC = nil
 	Own.hereDirty = true
+	-- With the reorder on, the steps are chosen again too: the step on screen goes back to the live one.
+	if ns.Get("behavior.stepReorder") then
+		Own.orderPin, Own.orderPlan, Own.orderMin, Own.orderCool, Own.orderKey = nil, nil, nil, 0, nil
+		if pin then Own.view(nil) end
+	end
 	evaluate()
 	local c, px, py = Compat().GetPlayerWorldPosition()
 	if c then
+		if Own.orderTick(c, px, py) then evaluate() end
 		-- The first poll builds and shows the lines (Own.hereLater), the second one scores them; the
 		-- arrow moves in this call, not in the next frame.
 		local aimed = Own.hereTick(c, px, py)
@@ -16650,6 +16658,237 @@ function Engine.Recalibrate()
 		if aimed then evaluate() end
 	end
 	return L["Recalibrated: the arrow chose its target again from where you stand."]
+end
+
+---------------------------------------------------------------------------
+-- Live step reorder: behavior.stepReorder (off by default). The guide's steps are written in one
+-- order; when the next few of them can be done in an order that walks less, the window shows the
+-- one to do first. It never changes the guide, its steps or its saved progress: the live step
+-- (`computed`, the first open one) stays what it is, and the step shown is a look at a later
+-- one (Own.view, the pin the player's Next and Goto use), so the live step comes back when
+-- that one is done. Only a run of plain steps moves: no flight, hearth, level wait, training,
+-- escort, timed quest, group or dungeon question, `when` or `skipto` step, nothing on another
+-- continent, and a step stays after any step it shares a quest with and after every step when
+-- one of its accepts or hand-ins cannot be done now (Own.aheadOk with no prerequisite handed
+-- in first, the quest in the log). ns.StepOrder tries every order of at most 5 steps.
+---------------------------------------------------------------------------
+Own.ORDER_TAKE = 20 -- seconds of walking the best order must save over the guide's own to be shown
+Own.ORDER_SWITCH = 30 -- seconds more than the order that starts with the shown step, to show another
+Own.ORDER_RELEASE = 5 -- seconds saved under which the shown step goes back to the live one
+-- What a step may ask of the player and still move; anything else keeps the guide's order.
+Own.ORDER_KINDS = { accept = true, turnin = true, kill = true, collect = true, interact = true, talk = true, goto = true, note = true, complete = true, use = true }
+Own.orderWin, Own.orderCool, Own.orderMin = {}, 0, nil
+Own.orderPin = nil -- the step this module put on screen
+Own.orderPlan = nil -- the steps in the order shown, while one is
+
+-- The quest ids a step's open goals touch, and whether every open goal of the step can be done
+-- now, from world position c: -> entry x, y, exit x, y, `quests`, `ready`; nil when the step
+-- cannot move.
+function Own.orderPoints(s, c, quests)
+	local step = guide.steps[s]
+	if step.when ~= nil or step.skipto ~= nil or not Own.lookable(s) or Own.groupPending(step) or Own.dungeonPending(step) then return nil end
+	local C, ex, ey, ox, oy, ready = Compat(), nil, nil, nil, nil, true
+	local accepted = {}
+	for q in pairs(quests) do quests[q] = nil end
+	for g, goal in ipairs(step.goals) do
+		if goalApplies(goal) and blocks(goal) and not goalDone(s, g, goal) and not Own.goalSkipped(s, g) and not unavailableFor(goal) then
+			if not Own.ORDER_KINDS[goal.t] or goal.escort or goal.limit or goal.group or goal.either then return nil end
+			local q = goal.quest
+			if q then
+				quests[q] = true
+				if goal.t == "accept" then
+					if not Own.aheadOk(s, g, goal, Own.READY_NONE, true) then ready = false end
+					accepted[q] = true
+				elseif not (accepted[q] or C.IsOnQuest(q) or questDone(q)) then
+					ready = false
+				end
+			end
+			if goal.map and goal.x and goal.y then
+				local pc, wx, wy = C.MapToWorld(goal.map, goal.x, goal.y, goal.f)
+				if pc ~= c then return nil end
+				if not ex then ex, ey = wx, wy end
+				ox, oy = wx, wy
+			end
+		end
+	end
+	if not ex then return nil end
+	return ex, ey, ox, oy, ready
+end
+
+-- The window of steps (at most StepOrder.MAX) from the live one that may move, with what each
+-- needs (StepOrder.need), filled into ns.StepOrder; kept until the step, the quest log or the
+-- level changes. -> how many steps; the first is the live step.
+function Own.orderFill(Order, c)
+	local key = table.concat({ guide.id, tostring(computed), tostring(Own.logStamp), tostring(player and player.level), tostring(c) }, ":")
+	local win = Own.orderWin
+	if Own.orderKey ~= key then
+		Own.orderKey, win.n = key, 0
+		local s = computed
+		while s and win.n < Order.MAX do
+			local w = win[win.n + 1] or { quests = {} }
+			local ex, ey, ox, oy, ready = Own.orderPoints(s, c, w.quests)
+			if not ex then break end
+			win.n = win.n + 1
+			win[win.n] = w
+			w.s, w.ex, w.ey, w.ox, w.oy, w.ready = s, ex, ey, ox, oy, ready
+			s = nextOpen(s)
+		end
+		win.tail = nil
+		if s and win.n > 0 then
+			-- The guide's step after the window: the walk goes on to it, whatever it is.
+			for g, goal in ipairs(guide.steps[s].goals) do
+				if goalApplies(goal) and blocks(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
+					local pc, wx, wy = Compat().MapToWorld(goal.map, goal.x, goal.y, goal.f)
+					if pc == c then win.tx, win.ty, win.tail = wx, wy, true end
+					break
+				end
+			end
+		end
+		-- The steps each one has to follow.
+		local room = Own.logRoom()
+		for j = 1, win.n do
+			local need, wj = Order.need[j] or {}, win[j]
+			Order.need[j] = need
+			local accepts = 0
+			for g, goal in ipairs(guide.steps[wj.s].goals) do
+				if goal.t == "accept" and goalApplies(goal) and blocks(goal) and not goalDone(wj.s, g, goal) then accepts = accepts + 1 end
+			end
+			for i = 1, Order.MAX do need[i] = false end
+			for i = 1, j - 1 do
+				local follows = not wj.ready
+				for q in pairs(wj.quests) do
+					if win[i].quests[q] then follows = true end
+				end
+				-- A step that takes more quests than the log has room for waits for the hand-ins before it.
+				if not follows and accepts > room then
+					for g, goal in ipairs(guide.steps[win[i].s].goals) do
+						if goal.t == "turnin" and goalApplies(goal) and blocks(goal) then follows = true end
+					end
+				end
+				need[i] = follows
+			end
+		end
+	end
+	Order.tx, Order.ty = nil, nil
+	if win.tail then Order.tx, Order.ty = win.tx, win.ty end
+	for i = 1, win.n do
+		local w = win[i]
+		Order.ex[i], Order.ey[i], Order.ox[i], Order.oy[i] = w.ex, w.ey, w.ox, w.oy
+	end
+	return win.n
+end
+
+-- Back to the live step: the step this module showed goes, the plan with it.
+function Own.orderRelease(cool)
+	local was = Own.orderPin
+	Own.orderPin, Own.orderPlan, Own.orderMin = nil, nil, nil
+	if cool then Own.orderCool = GetTime() + Own.AIM_COOL end
+	if was and pin == was then
+		Own.view(nil)
+		return true
+	end
+	return false
+end
+
+-- Yards from the player to where window step i is entered.
+function Own.orderFar(Order, i, px, py)
+	return ((px - Order.ex[i]) ^ 2 + (py - Order.ey[i]) ^ 2) ^ 0.5
+end
+
+-- Put step s on screen first (the plan is in `plan`, the steps in the order to do them), the player
+-- being `d` yards from where it is entered.
+function Own.orderTake(s, plan, d)
+	Own.orderPin, Own.orderMin = s, d
+	Own.orderPlan = Own.orderPlan or {}
+	for k = 1, #Own.orderPlan do Own.orderPlan[k] = nil end
+	for k = 1, #plan do Own.orderPlan[k] = plan[k] end
+	Own.view(s)
+	Own.hereDirty = true
+	return true
+end
+
+-- One arrival poll of the reorder, from world position c, px, py: take, keep, switch or hand back the
+-- step on screen. Outside combat, with nothing blocking (Own.hereBlocked), no step of the player's
+-- own on screen (Next, Prev and Goto stay theirs) and no arrow target of theirs. True when the step on
+-- screen changed.
+function Own.orderTick(c, px, py)
+	local Order = ns.StepOrder
+	local on = Order and guide and computed and c and ns.Get("behavior.stepReorder")
+	if not on then return Own.orderPin ~= nil and Own.orderRelease(false) end
+	-- The step it showed was done and the pin followed forward (evaluate): not the player's pin. It goes
+	-- back to the live step, and the window says so even when nothing is taken in its place.
+	local moved = false
+	if Own.orderPin and pin ~= Own.orderPin and stepDone(Own.orderPin) and (pin == nil or pin > Own.orderPin) then
+		Own.orderPin, Own.orderPlan, Own.orderMin = nil, nil, nil
+		if pin then
+			Own.view(nil)
+			moved = true
+		end
+	end
+	if pin and pin ~= Own.orderPin then
+		Own.orderPin, Own.orderPlan = nil, nil
+		return moved
+	end
+	if placing or Own.hereBlocked() or (UnitAffectingCombat and UnitAffectingCombat("player")) then return moved end
+	local n = Own.orderFill(Order, c)
+	local win = Own.orderWin
+	if n < 2 then return (Own.orderPin ~= nil and Own.orderRelease(false)) or moved end
+	Order.Best(n, px, py)
+	local per = Own.HERE_WINDING / Own.HERE_SPEED
+	local best = Order.order[1]
+	local saved = (Order.base - Order.cost) * per
+	local held
+	for i = 1, n do
+		if win[i].s == Own.orderPin then held = i end
+	end
+	if Own.orderPin then
+		if not held then return Own.orderRelease(false) or moved end
+		-- Walking away from it, farther than the player got: handed back, and it rests.
+		local d = Own.orderFar(Order, held, px, py)
+		if not Own.orderMin or d < Own.orderMin then Own.orderMin = d end
+		if d > Own.orderMin + Own.AIM_DEVIATE then return Own.orderRelease(true) or moved end
+		local mine = Order.first[held]
+		if best == held and saved >= Own.ORDER_RELEASE then return moved end
+		-- Another first step only for one that saves ORDER_SWITCH seconds more than this one does.
+		if not mine or (mine - Order.cost) * per >= Own.ORDER_SWITCH or (Order.base - mine) * per < Own.ORDER_RELEASE then
+			if best ~= 1 and saved >= Own.ORDER_TAKE then
+				local plan = {}
+				for k = 1, n do plan[k] = win[Order.order[k]].s end
+				return Own.orderTake(win[best].s, plan, Own.orderFar(Order, best, px, py))
+			end
+			return Own.orderRelease(false) or moved
+		end
+		return moved
+	end
+	if best == 1 or saved < Own.ORDER_TAKE or GetTime() < Own.orderCool or aim then return moved end
+	local plan = {}
+	for k = 1, n do plan[k] = win[Order.order[k]].s end
+	return Own.orderTake(win[best].s, plan, Own.orderFar(Order, best, px, py))
+end
+
+-- The steps the route plays from the live one, in the order shown: the reorder's plan while the
+-- step it chose is on screen, then the guide's own order after it. Fills `out` with at most `max`
+-- applicable steps. -> how many.
+function Own.orderSteps(out, from, max)
+	local n, plan = 0, Own.orderPlan
+	if plan and Own.orderPin and pin == Own.orderPin then
+		local last = from
+		for k = 1, #plan do
+			if n >= max then return n end
+			n = n + 1
+			out[n] = plan[k]
+			if plan[k] > last then last = plan[k] end
+		end
+		from = last + 1
+	end
+	for s = from, #guide.steps do
+		if n >= max then break end
+		if stepApplies(guide.steps[s]) then
+			n = n + 1
+			out[n] = s
+		end
+	end
+	return n
 end
 
 -- The player's "not now" for line i (default 1): it goes, muted near here
@@ -16758,7 +16997,8 @@ end
 
 -- One arrival poll's work for the line, from world position c, px, py (tests).
 function Engine.WhileHereTick(c, px, py)
-	if Own.hereTick(c, px, py) then requestUpdate() end
+	local moved = Own.orderTick(c, px, py)
+	if Own.hereTick(c, px, py) or moved then requestUpdate() end
 end
 
 -- What changes the candidates: the quest log, a turn-in (it opens the
