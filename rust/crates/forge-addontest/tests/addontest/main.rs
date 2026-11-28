@@ -273,8 +273,6 @@ mod engine_zone_walk;
 mod faction_guides;
 #[path = "fastest-xp.rs"]
 mod fastest_xp;
-#[path = "next-stop.rs"]
-mod next_stop;
 #[path = "flight-map-notice.rs"]
 mod flight_map_notice;
 #[path = "free-mode.rs"]
@@ -404,6 +402,8 @@ mod nav_trail;
 mod nav_transit;
 #[path = "new-in-forever.rs"]
 mod new_in_forever;
+#[path = "next-stop.rs"]
+mod next_stop;
 #[path = "options-memory.rs"]
 mod options_memory;
 #[path = "options-search.rs"]
