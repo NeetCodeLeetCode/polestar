@@ -27,11 +27,13 @@ pub(crate) struct Scene {
 	pub mount: bool,
 	/// Lua run after the settings, before the player starts.
 	pub lua: String,
+	/// Trace why the engine chose each arrow (its routing report).
+	pub explain: bool,
 }
 
 impl Scene {
 	pub fn new(faction: &'static str, race: &'static str, class: &'static str, level: u32, guide: &'static str) -> Scene {
-		Scene { faction, race, class, level, guide, settings: vec![], events: "{}".into(), seconds: 1800, stop_level: 0, hardcore: false, mount: false, lua: String::new() }
+		Scene { faction, race, class, level, guide, settings: vec![], events: "{}".into(), seconds: 1800, stop_level: 0, hardcore: false, mount: false, lua: String::new(), explain: false }
 	}
 	pub fn with(mut self, settings: &[(&'static str, &'static str)]) -> Scene {
 		self.settings.extend_from_slice(settings);
@@ -95,10 +97,11 @@ do -- the player stands at the first place of the guide
 	stub.advance(2)
 end
 {player}
-emit(ARROW.run({{ seconds = {seconds}, {stop} mount = {mount}, events = {events} }}))
+emit(ARROW.run({{ seconds = {seconds}, {stop} mount = {mount}, explain = {explain}, events = {events} }}))
 "#,
 			guide = s.guide,
 			lua = s.lua,
+			explain = s.explain,
 			player = ARROW_PLAYER.as_str(),
 			seconds = s.seconds,
 			mount = s.mount,
@@ -270,6 +273,7 @@ fn probe_one() {
 		let extra = format!("{{ at = {at}, kind = \"call\", fn = function() {body} end }}");
 		s.events = if s.events == "{}" { format!("{{ {extra} }}") } else { s.events.replacen('{', &format!("{{ {extra}, "), 1) };
 	}
+	s.explain = std::env::var("SCENARIO_EXPLAIN").is_ok();
 	if std::env::var("SCENARIO_FAST").is_ok() {
 		s = s.with(FASTEST);
 	}
