@@ -221,40 +221,24 @@ fn flag(m: &Value) -> String {
 	v.join(", ")
 }
 
+/// The rules every run keeps, in both arms: the player is never stuck, no quest is taken without the quests it needs,
+/// no class step is left out for the mode, and the arrow does not flip back and forth.
+fn assert_rules(name: &str, m: &Value) {
+	assert!(m["stuck"].is_null(), "{name}: stuck {}", m["stuck"]);
+	assert!(m["breaks"].as_object().map_or(true, |b| b.is_empty()) && m["breaks"].as_array().map_or(true, |b| b.is_empty()), "{name}: breaks {}", m["breaks"]);
+	assert!(num(m, "reversals") <= 1.0, "{name}: {} reversals", num(m, "reversals"));
+	assert!(num(m, "cpuMax") < 0.25, "{name}: one update took {:.0} ms", num(m, "cpuMax") * 1000.0);
+}
+
 #[test]
-#[ignore = "campaign"]
-fn campaign_calm() {
-	let secs: u32 = std::env::var("SCENARIO_SECONDS").ok().and_then(|v| v.parse().ok()).unwrap_or(1800);
-	let seeds: u64 = std::env::var("SCENARIO_SEEDS").ok().and_then(|v| v.parse().ok()).unwrap_or(2);
-	let kinds: Vec<&str> = std::env::var("SCENARIO_KINDS").ok().map(|v| v.split(',').filter(|k| !k.is_empty()).map(|k| &*Box::leak(k.to_string().into_boxed_str())).collect()).unwrap_or_default();
-	let only = std::env::var("SCENARIO_ONLY").unwrap_or_default();
-	let mut ratio = Vec::new();
-	for c in CHARS.iter().filter(|c| only.is_empty() || c.0.contains(&only)) {
-		for seed in 1..=seeds {
-			let p = pair(c, seed, secs, &kinds);
-			let (xd, xf) = (num(&p.d, "xp"), num(&p.f, "xp"));
-			ratio.push(xf / xd.max(1.0));
-			eprintln!(
-				"{:<18} seed {seed}: D {:>6.0} xp lv{} {:>5} yd {:>3} hand-ins | F {:>6.0} xp lv{} {:>5} yd {:>3} hand-ins | F/D {:.2} | cpu {:.0}/{:.0} ms | D: {} | F: {}",
-				p.name,
-				xd,
-				num(&p.d, "level"),
-				num(&p.d, "yards"),
-				num(&p.d, "handins"),
-				xf,
-				num(&p.f, "level"),
-				num(&p.f, "yards"),
-				num(&p.f, "handins"),
-				xf / xd.max(1.0),
-				num(&p.d, "cpuMax") * 1000.0,
-				num(&p.f, "cpuMax") * 1000.0,
-				flag(&p.d),
-				flag(&p.f)
-			);
-		}
-	}
-	ratio.sort_by(|a, b| a.partial_cmp(b).unwrap());
-	eprintln!("F/D XP ratio over {} scenarios: min {:.2}, median {:.2}, max {:.2}", ratio.len(), ratio[0], ratio[ratio.len() / 2], ratio[ratio.len() - 1]);
+fn a_short_calm_run_keeps_the_rules_and_the_mode_loses_no_xp() {
+	// A short run of a new character on a seed: the guide's order against Fastest XP (the whole sweep: `campaign`).
+	let c = CHARS.iter().find(|c| c.0 == "orc-warrior-1").unwrap();
+	let p = pair(c, 1, 900, &[]);
+	assert_rules("defaults", &p.d);
+	assert_rules("Fastest XP", &p.f);
+	assert!(num(&p.f, "xp") >= 0.9 * num(&p.d, "xp"), "Fastest XP {} xp against {} xp", num(&p.f, "xp"), num(&p.d, "xp"));
+	assert_eq!(p.d["classSteps"]["skipped"], p.f["classSteps"]["skipped"]);
 }
 
 /// One run printed whole, with the stuck state: SCENARIO_ONLY=<name> SCENARIO_FAST=1 for Fastest XP.
