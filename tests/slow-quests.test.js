@@ -1,14 +1,14 @@
 'use strict';
-// "Skip slow quests" (behavior.skipSlow, off by default): the hand-written list data/codex/slow-quests.json, scored
-// from forever-db, written to Core/SlowQuestList.lua by `slowquests build`. The addon side (Own.slowSkipped) is
-// tested in forge-addontest's engine-slow-quests.rs.
+// "Skip slow quests" (behavior.skipSlow, off by default): the hand-written list data/codex/slow-quests.json, checked
+// against forever-db and written to Core/SlowQuestList.lua by `slowquests build`. The build judges no kill count,
+// drop chance or time. The addon side (Own.slowSkipped) is tested in forge-addontest's engine-slow-quests.rs.
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const SQ = require('../tools/commands/slowquests');
-const { loadDb, bandMedians, chainScore, questMinutes, isClassMask } = require('../tools/lib/slow-quests');
+const { loadDb, isClassMask } = require('../tools/lib/slow-quests');
 
 const ROOT = path.join(__dirname, '..');
 const LIST = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'codex', 'slow-quests.json'), 'utf8'));
@@ -49,11 +49,11 @@ test('a row the list builds is refused when a quest is unknown, doubled, in both
 	bad((l) => (l.slow[0].reviewed = 'last week'), /reviewed must be/);
 });
 
-test('a class quest is never a row, and the score leaves class quests out of the medians', () => {
+test('a class quest is never a row', () => {
 	// A quest open to some classes only, from the quest database's mask.
 	let classQuest;
-	for (const [q, info] of db.quests) if (isClassMask(info) && info.xp && questMinutes(db, q)) { classQuest = q; break; }
-	assert.ok(classQuest, 'forever-db holds a scored class quest');
+	for (const [q, info] of db.quests) if (isClassMask(info)) { classQuest = q; break; }
+	assert.ok(classQuest, 'forever-db holds a class quest');
 	const l = clone();
 	l.slow = [row({ quests: [classQuest] })];
 	assert.throws(() => SQ.buildSlowList(l, db, classQuests), /class quest/);
@@ -61,85 +61,24 @@ test('a class quest is never a row, and the score leaves class quests out of the
 	const l2 = clone();
 	l2.slow = [row({ quests: [701] })];
 	assert.throws(() => SQ.buildSlowList(l2, db, new Set([701])), /class quest/);
-	// A made-up database: 3 quests at 50, 60 and 70 XP a minute, and a class quest at 5000. The class quest is no part of the median.
-	const mk = (id, xp, classes = 0) => [id, { level: 10, xp, classes }];
-	const fake = {
-		quests: new Map([mk(1, 100), mk(2, 120), mk(3, 140), mk(4, 10000, 2)]),
-		objectives: new Map([1, 2, 3, 4].map((q) => [q, [{ quest: q, kind: 'kill', count: 4 }]])),
-		chance: new Map(),
-	};
-	assert.equal(questMinutes(fake, 1), 2);
-	assert.equal([...bandMedians(fake).values()][0], 60, 'the class mask quest is left out');
-	assert.equal([...bandMedians({ ...fake, quests: new Map([mk(1, 100), mk(2, 120), mk(3, 140), mk(4, 10000)]) }, new Set([4])).values()][0], 60, 'so is a quest of a Class guide');
-	assert.equal(chainScore(fake, bandMedians(fake), [1]).ratio, 0.83);
 });
 
-test('the score overrules a low-drop row that the data says is fast, and no other code', () => {
-	// Troll Witchery (205): 3,150 XP for 4 items at an 80 percent drop, 1.67 times its band's median.
-	const fast = (code) => {
+test('the list judges no kill count, drop chance or time: a row stays whatever the data says', () => {
+	// Troll Witchery (205) pays 3,150 XP for 4 items at an 80 percent drop: fast by any score. As a row it is still on the list.
+	for (const code of ['low-drop', 'slow-respawn', 'slow-xp']) {
 		const l = clone();
 		l.slow = [row({ quests: [205], code })];
 		l.keep = l.keep.filter((k) => !k.quests.includes(205));
-		return SQ.buildSlowList(l, db, classQuests);
-	};
-	const low = fast('low-drop');
-	assert.equal(low.rows[0].overruled, true);
-	assert.deepEqual(low.codes, {}, 'it is not in the addon');
-	assert.ok(low.rows[0].score.ratio >= 1);
-	const respawn = fast('slow-respawn');
-	assert.equal(respawn.rows[0].overruled, false, 'a respawn is not in the data');
-	assert.deepEqual(respawn.codes, { 'slow-respawn': [205] });
-});
-
-test('a slow row of the list stays slow against the data', () => {
-	const built = SQ.buildSlowList(LIST, db, classQuests);
-	for (const r of built.rows) assert.equal(r.overruled, false, `${r.name} is overruled: ${JSON.stringify(r.score)}`);
-	const medians = bandMedians(db, classQuests);
-	for (const k of LIST.keep) assert.ok(chainScore(db, medians, k.quests), `${k.name} has a score`);
-});
-
-// The quests that turn slow as the character outlevels them (the list's `level`): from the quest database alone.
-test('a quest the character outlevels turns slow from the level its pay falls far under its time, and never before the reward is cut', () => {
-	const { slowFromLevels, levelMedians } = require('../tools/lib/slow-quests');
-	// A level 14 quest asking 12 kills of level 12 mobs, and ten quests of level 20 asking 10 kills of level 20 mobs.
-	const quests = new Map([[1, { level: 14, xp: 700, classes: 0 }]]);
-	const objectives = new Map([[1, [{ quest: 1, kind: 'kill', target: 100, count: 12 }]]]);
-	for (let q = 2; q < 12; q++) {
-		quests.set(q, { level: 20, xp: 1500, classes: 0 });
-		objectives.set(q, [{ quest: q, kind: 'kill', target: 101, count: 10 }]);
+		assert.deepEqual(SQ.buildSlowList(l, db, classQuests).codes, { [code]: [205] });
 	}
-	const fake = { quests, objectives, chance: new Map(), npcs: new Map([[100, { level: 12, elite: false }], [101, { level: 20, elite: false }]]) };
-	const medians = levelMedians(fake);
-	const from = slowFromLevels(fake, medians, 0.3, 6).get(1);
-	assert.equal(from, 20, 'level 20: 6 levels over it, 80 percent of the reward and grey mobs');
-	// Never before the reward is cut: the data alone calls it slow earlier (its mobs are grey from 19), and fromGap holds it.
-	assert.ok(slowFromLevels(fake, medians, 0.3, 1).get(1) < 20, 'the rate alone is under the line sooner');
-	assert.equal(slowFromLevels(fake, medians, 0.3, 7).get(1), 21, 'fromGap is the least level gap');
-	// A class quest, and a quest the caller skips (a row, a keep), are never listed.
-	const classy = { ...fake, quests: new Map([...quests, [1, { level: 14, xp: 700, classes: 2 }]]) };
-	assert.equal(slowFromLevels(classy, levelMedians(classy), 0.3, 6).has(1), false);
-	assert.equal(slowFromLevels(fake, medians, 0.3, 6, new Set([1])).has(1), false);
+	// And the list names no score, level or margin setting.
+	for (const key of ['margin', 'level']) assert.equal(key in LIST, false, `${key} is gone`);
+	const lua = fs.readFileSync(path.join(ROOT, 'addon', 'Polestar', 'Core', 'SlowQuestList.lua'), 'utf8');
+	assert.equal(/SlowAt|outlevelled/.test(lua), false, 'the build writes no level table');
 });
 
-test('the list builds the outlevelled quests: none of a row, a keep row or a class quest, and each turns slow by the data', () => {
-	const built = SQ.buildSlowList(LIST, db, classQuests);
-	assert.ok(built.byLevel.size > 100, 'the data marks quests slow from some level');
-	const rowQuests = new Set([...LIST.slow, ...LIST.keep].flatMap((r) => r.quests));
-	const medians = require('../tools/lib/slow-quests').levelMedians(db, classQuests);
-	const { barRate } = require('../tools/lib/slow-quests');
-	for (const [q, level] of built.byLevel) {
-		assert.ok(!rowQuests.has(q) && !classQuests.has(q) && !isClassMask(db.quests.get(q)), `${q} is a row, keep or class quest`);
-		assert.ok(level - db.quests.get(q).level >= LIST.level.fromGap, `${q} turns slow ${level - db.quests.get(q).level} levels over it`);
-		assert.ok(barRate(db, q, level) / medians.get(level) < LIST.level.threshold, `${q} at ${level}`);
-	}
-	// The user's case: a level 14 quest of level 12 mobs, at 20.
-	assert.equal(built.byLevel.get(887), 20);
-});
-
-test('a bad level setting is refused', () => {
-	for (const level of [undefined, { threshold: 2, fromGap: 6 }, { threshold: 0.3, fromGap: 0 }]) {
-		const l = clone();
-		l.level = level;
-		assert.throws(() => SQ.buildSlowList(l, db, classQuests), /level\./);
-	}
+test('the report names each row with its age and when a review is due', () => {
+	const out = require('node:child_process').execFileSync(process.execPath, [path.join(ROOT, 'tools', 'polestar.js'), 'slowquests', 'report', '--today', '2026-12-30'], { encoding: 'utf8' });
+	assert.match(out, /Guile of the Raptor \(701 702 847\) \| low-drop \| 32 days \(review due\)/);
+	assert.match(out, /keep Consumed by Hatred/);
 });

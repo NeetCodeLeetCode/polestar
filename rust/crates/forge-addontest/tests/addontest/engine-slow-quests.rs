@@ -14,8 +14,6 @@ w.titles[701] = "Guile of the Raptor"
 w.titles[702] = "Guile of the Raptor"
 w.titles[7] = "Kobold Camp Cleanup"
 w.titles[9] = "A Quest Needing Guile"
-w.titles[887] = "A Level 14 Quest Of Level 12 Mobs"
-w.titles[26] = "A Level 16 Quest"
 "#;
 
 // Step 1: the first part of the chain (accept, the kills it asks, hand-in). Step 2: its follow-up, also on the list.
@@ -71,39 +69,6 @@ Polestar.RegisterGuide({
 		{ title = "Trainer", goals = {
 			{ t = "accept", quest = 701, title = "Guile of the Raptor", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6, only = { classes = { "WARRIOR" } } },
 			{ t = "accept", quest = 702, title = "Guile of the Raptor", npc = 2562, npcName = "Gor'mul", map = 1429, x = 50.2, y = 40.1 },
-		} },
-	},
-})
-"#;
-
-// Quest 887 is a level 14 quest asking 12 kills of level 12 mobs and 6 of level 13: at level 20 it pays 80% of its
-// reward and the mobs pay nothing, so the quest database's score marks it slow from level 20 (the list's SlowAt).
-// Quest 26 is not on the list at any level.
-const OUTLEVELLED: &str = r#"
-Polestar.RegisterGuide({
-	id = "test/slow", pack = "test", title = "Slow", minLevel = 14, maxLevel = 30, steps = {
-		{ title = "Old quest", goals = {
-			{ t = "accept", quest = 887, title = "A Level 14 Quest Of Level 12 Mobs", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6 },
-			{ t = "kill", target = "Murloc", npc = 2561, count = 12, quest = 887, map = 1429, x = 47.6, y = 35.1 },
-			{ t = "turnin", quest = 887, title = "A Level 14 Quest Of Level 12 Mobs", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6 },
-		} },
-		{ title = "Fresh quest", goals = {
-			{ t = "accept", quest = 26, title = "A Level 16 Quest", npc = 197, npcName = "Marshal McBride", map = 1429, x = 48.9, y = 41.6 },
-		} },
-	},
-})
-"#;
-
-// The same quest, which a quest that is not slow needs.
-const OUTLEVELLED_NEEDED: &str = r#"
-Polestar.RegisterGuide({
-	id = "test/slow", pack = "test", title = "Slow", minLevel = 14, maxLevel = 30, steps = {
-		{ title = "Old quest", goals = {
-			{ t = "accept", quest = 887, title = "A Level 14 Quest Of Level 12 Mobs", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6 },
-			{ t = "turnin", quest = 887, title = "A Level 14 Quest Of Level 12 Mobs", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6 },
-		} },
-		{ title = "Needing it", goals = {
-			{ t = "accept", quest = 26, title = "A Level 16 Quest", npc = 197, npcName = "Marshal McBride", map = 1429, x = 48.9, y = 41.6, pre = { 887 } },
 		} },
 	},
 })
@@ -198,43 +163,4 @@ fn a_goal_for_one_class_is_never_left_out_while_the_same_quest_for_everyone_is()
 	assert_eq!(on[0], off[0], "the class goal is as it was with the setting off");
 	assert_ne!(on[0], json!("na"), "and it is not left out: {on}");
 	assert_eq!(on[1], json!("na"), "the goal for everyone is left out");
-}
-
-#[test]
-fn a_quest_the_character_has_outlevelled_is_left_out_from_the_level_its_pay_falls_far_under_its_time() {
-	// Level 19: it pays its full reward, and the level 13 mobs still give XP.
-	let before = run(OUTLEVELLED, true, "stub.world.level = 19", "emit({ statuses(1), statuses(2) })");
-	assert!(before[0].as_array().unwrap().iter().all(|s| s != "na"), "at 19 it stays: {before}");
-	// Level 20: 80% of the reward and grey mobs.
-	let out = run(OUTLEVELLED, true, "stub.world.level = 20", "emit({ statuses(1), statuses(2) })");
-	assert_eq!(out[0], json!(ALL_NA), "at 20 every goal of it is left out");
-	assert_ne!(out[1], json!(["na"]), "a quest that is not slow stays");
-	// The setting off leaves it as it was.
-	let off = run(OUTLEVELLED, false, "stub.world.level = 20", "emit(statuses(1))");
-	assert!(off.as_array().unwrap().iter().all(|s| s != "na"), "off by default: {off}");
-}
-
-#[test]
-fn an_outlevelled_quest_a_quest_that_is_not_slow_needs_stays_and_so_does_one_in_the_log() {
-	let needed = run(OUTLEVELLED_NEEDED, true, "stub.world.level = 20", "emit({ statuses(1), statuses(2) })");
-	assert!(needed[0].as_array().unwrap().iter().all(|s| s != "na"), "the prerequisite stays: {needed}");
-	let taken = run(OUTLEVELLED, true, "stub.world.level = 20\nstub.world.onQuest(887, {})", "emit(statuses(1))");
-	assert!(taken.as_array().unwrap().iter().all(|s| s != "na"), "the player took it: {taken}");
-}
-
-#[test]
-fn the_guide_window_says_an_outlevelled_quest_pays_too_little_for_its_time() {
-	let out = run(
-		OUTLEVELLED,
-		true,
-		"stub.world.level = 20",
-		r#"
-		local list = E.LeftOutHere(1, true)
-		local found
-		for _, o in ipairs(list) do if o.quest == 887 then found = o end end
-		emit({ kind = found and found.kind, text = found and found.text })
-	"#,
-	);
-	assert_eq!(out["kind"], json!("slow"));
-	assert!(out["text"].as_str().unwrap().contains("Pays too little XP"), "the text says why: {out}");
 }

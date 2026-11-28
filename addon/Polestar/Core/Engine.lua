@@ -452,39 +452,34 @@ end
 
 -- behavior.skipSlow ("Skip slow quests"): the quests of Core/SlowQuestList.lua
 -- left out of a leveling guide, all their goals (goalApplies, as an escort the
--- player skips): a quest of its hand-written list, and one the character has
--- outlevelled until what it pays for its time falls far under what a quest of
--- their level pays (the list's SlowAt, from the quest database). One stays when
--- a quest still worth doing needs it: the prerequisites of every accept of the
--- guide and the guides after it that is not slow, down the chain (Own.needsFrom,
--- as chainNeeds does for grey quests). Cached with the chain, per level.
-function Own.slowCode(q)
-	local List = ns.SlowQuestList
-	return List and List.SlowAt(q, player.level or 1) or nil
-end
-
+-- player skips). The list is the hand-written one of data/codex/slow-quests.json:
+-- the code judges no kill count, drop chance or time. One stays when a quest
+-- still worth doing needs it: the prerequisites of every accept of the guide
+-- and the guides after it that is not on the list, down the chain
+-- (Own.needsFrom, as chainNeeds does for grey quests). It does not depend on
+-- the level, so it is cached with the chain.
 local function slowNeeds(g)
 	local chain = Own.chainOf(g)
 	local c = chainNeedsCache[g.steps]
-	local key = "slow:" .. (player.level or 1)
-	local set = c[key]
+	local set = c.slow
 	if set then return set end
-	local open = {}
+	local List, open = ns.SlowQuestList, {}
 	for _, goal in ipairs(chain.accepts) do
-		if not Own.slowCode(goal.quest) then open[#open + 1] = goal end
+		if not List.Slow(goal.quest) then open[#open + 1] = goal end
 	end
 	set = Own.needsFrom(chain.pres, open)
-	c[key] = set
+	c.slow = set
 	return set
 end
 
 -- Whether "Skip slow quests" leaves quest q of the loaded guide out: the
--- setting on, a leveling guide, q slow for the character, neither in the log
+-- setting on, a leveling guide, q on the list, neither in the log
 -- nor done, and no quest worth doing that needs it. Never a class quest (goal: its goal, when known). A guide down the chain not loaded
 -- leaves its needs unknown, so the quest stays (as Engine.GreyLeftOut).
 function Own.slowSkipped(q, goal)
 	if not (q and guide and ns.Get("behavior.skipSlow")) then return false end
-	if not (Own.slowCode(q) and not Own.everyStep(guide)) then return false end
+	local List = ns.SlowQuestList
+	if not (List and List.Slow(q)) or Own.everyStep(guide) then return false end
 	-- Never a class quest: a goal for some classes only, or a quest the database opens to some classes only.
 	-- (A Class guide is not a leveling guide: Own.everyStep.)
 	local only = goal and goal.only
@@ -13878,7 +13873,7 @@ function Engine.LeftOutHere(i, alone)
 			return add(s, goal, "grey", L["Grey for you: pays %d%% XP (Skip grey quests)"]:format(share(a.qlvl)), { kind = "skipGrey" })
 		end
 		-- Left out by Skip slow quests (Own.slowSkipped): the code of its row says why.
-		if Own.slowSkipped(q) then return add(s, goal, "slow", Own.slowText(Own.slowCode(q))) end
+		if Own.slowSkipped(q) then return add(s, goal, "slow", Own.slowText(ns.SlowQuestList.Slow(q))) end
 		local u = unavailableFor(goal)
 		if not u then return end
 		-- On the step itself only an accept waiting for a level is out of sight (goalView).
@@ -17192,6 +17187,7 @@ function Engine.Recalibrate()
 		if Own.hereTick(c, px, py) then aimed = true end
 		if aimed then evaluate() end
 	end
+	ns.Fire("RECALIBRATED")
 	return L["Recalibrated: the arrow chose its target again from where you stand."]
 end
 
@@ -17272,7 +17268,7 @@ end
 
 -- The seconds the work of a step takes: kills (and what counts as one: an item, a use, a click) at the
 -- minutes a kill takes, and the talk at each end of a quest at half the minutes a quest takes in all: the
--- time model Skip slow quests scores with (data/codex/slow-quests.json, `time`, via Core/SlowQuestList.lua).
+-- time model of data/codex/slow-quests.json (`time`, via Core/SlowQuestList.lua).
 function Own.orderWork(kills, ends)
 	local List = ns.SlowQuestList
 	local kill, base = List and List.KILL_MINUTES or 0.25, List and List.BASE_MINUTES or 1
@@ -19299,6 +19295,80 @@ end
 -- Take: the quest is part of the route again. Dismiss: it stays out, unlisted.
 function Engine.TakeEarlier(q) return Own.setEarlier(q, "taken") end
 function Engine.DismissEarlier(q) return Own.setEarlier(q, "dismissed") end
+
+-- What the route advice (Core/RouteAdvice.lua, UI/RouteAdviceCard.lua) reads of the route. Nothing here changes it.
+-- Seconds a stop at the nearest of `spots` ({ map, x, y, f }, at most Own.ADVICE_SPOTS) adds to the guide's next
+-- stops: the cheapest by straight lines first, then the best two priced by the route planner. Nil when the guide has
+-- no route ahead or no spot can be measured.
+Own.ADVICE_SPOTS = 8
+function Own.spotDetour(spots)
+	local here = ns.PlayerPoint()
+	local pts = here and Own.routePoints()
+	if not pts or #pts == 0 then return nil end
+	local rough = {}
+	for _, t in ipairs(spots) do
+		local d = Own.routeDetour(here, pts, t, ns.DirectTravelCost)
+		if d then rough[#rough + 1] = { t = t, d = d } end
+	end
+	table.sort(rough, function(a, b) return a.d < b.d end)
+	local best
+	for k = 1, math.min(2, #rough) do
+		local d = Own.routeDetour(here, pts, rough[k].t, ns.TravelCost) or rough[k].d
+		if not best or d < best then best = d end
+	end
+	return best
+end
+
+-- Seconds that finishing log quest q adds to the guide's next stops: the work of its dearest open objective, at the
+-- nearest spot of the objective. Nil when no open objective has a spot in the quest database.
+function Engine.QuestDetour(q)
+	local C = Compat()
+	local worst
+	for line, o in ipairs(C.GetQuestObjectives(q) or NONE) do
+		if not o.finished then
+			local goal = Own.objectiveGoal(q, line, o)
+			local spots = {}
+			if goal.map and goal.x and goal.y then
+				local list = goal.spots or { { x = goal.x, y = goal.y } }
+				local stride = math.max(1, math.ceil(#list / Own.ADVICE_SPOTS))
+				for i = 1, #list, stride do spots[#spots + 1] = { map = goal.map, x = list[i].x, y = list[i].y, f = goal.f } end
+			end
+			local d = #spots > 0 and Own.spotDetour(spots)
+			if d and (not worst or d > worst) then worst = d end
+		end
+	end
+	return worst
+end
+
+-- Seconds that taking quest q at the guide's accept of it adds to the guide's next stops, or nil.
+function Engine.PickupDetour(q)
+	for _, step in ipairs(guide and guide.steps or NONE) do
+		for _, goal in ipairs(step.goals) do
+			if goal.quest == q and goal.t == "accept" and goal.map and goal.x and goal.y then
+				return Own.spotDetour({ { map = goal.map, x = goal.x, y = goal.y, f = goal.f } })
+			end
+		end
+	end
+	return nil
+end
+
+-- Why no advice may be given about quest q, or nil: "class" (a class chain), "timed", "escort", "dungeon" (a dungeon's
+-- quest or one that leads to it).
+function Engine.AdviceHold(q)
+	if Own.classQuest(q) or Own.optionalClass(q) then return "class" end
+	local Q = ns.QuestDB
+	if Q and Q.TimeLimit and Q.TimeLimit(q) then return "timed" end
+	if Own.escortChoice(q) then return "escort" end
+	local D = ns.Dungeons
+	if D and D.QuestMark and D.QuestMark(q) then return "dungeon" end
+	return nil
+end
+
+-- Whether an accept of the guide needs quest q (skipping it would leave that accept out: Engine.SkipLoses).
+function Engine.AdviceNeeded(q) return Engine.SkipLoses(q) ~= nil end
+
+-- The sentence that says why a quest of the curated list is slow (the one the guide window gives).
+function Engine.SlowText(code) return Own.slowText(code) end
 
 -- Placement undo. place() writes its passes into the same saved tables as the
 -- player's own check-offs and skips (CharState().manual, skipped, when, and
