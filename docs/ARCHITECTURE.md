@@ -2576,19 +2576,28 @@ Polestar.Engine.StepHiddenFor(step, who?) -> bool  -- no step of its own for who
   "work" lines to `Own.hereAutoAim`, but only while no goal is aimed. `ns.StopPlanner`
   (`Core/StopPlanner.lua`, plain geometry) tries every order of every subset of the lines
   (at most 4) and scores a path by its value for each minute of extra walking. The extra
-  walking is the price of a hand-in (`Own.hereDetour`): the path from the player through the
-  lines and on to where the waypoint leads, less the straight way, at most
+  walking is the price of a hand-in (`Own.hereDetour`), measured through the guide's next
+  stops (`Plan.AHEAD`, 4, from `Own.routePoints`): the path from the player through the
+  lines and on through those stops, less the guide's own way, at most
   `behavior.whileHereAimSeconds` (5 to 60, 15 by default, Options' "Take nearby objectives"
   and "Objectives: how far out of your way"). The value of a line (`Own.hereValue`) is its
   quest's XP (`Own.questXp`) as percent of a level, split over the quest's unfinished lines.
   The last line of a quest counts 1.25 times as much if the quest has a follow-up
   (`QuestDB.FollowUps`), and 1.5 times as much with 3 quest slots or fewer free
-  (`Own.logRoom`), as its hand-in frees one. The arrow takes the first line of the best path
+  (`Own.logRoom`), as its hand-in frees one. A guide stop that a visited line does the work of
+  (`Plan.gown`) drops out of the way on, and a path can also be done after one of the guide's
+  next stops (the lookahead): the arrow then waits and the best later score keeps it from
+  taking a worse line now. A quest's value includes the next quests of its chain
+  (`Own.hereChain`, `Own.AIM_CHAIN`). The arrow takes the first line of the best path
   when it scores `Own.AIM_TRIGGER` (3) or the path is on the way (`Own.AIM_FREE`, 3 s).
   It holds the line against the heading the guide had when it took it (the arrow itself leads
   to the line), goes back to the guide below `Own.AIM_RELEASE` (1.5) or when the guide's step
   changes (it plans again at once), and gives way to another line only for a path that scores
-  `Own.AIM_MARGIN` (1.3) times as much. A pick-up, a hand-in, a flight master and the sell, repair
+  `Own.AIM_MARGIN` (1.3) times as much. If the player walks `Own.AIM_DEVIATE` (60) yards past the nearest
+  point to a held line, it is handed back and rests `Own.AIM_COOL` (30) s. `Engine.Recalibrate`
+  (the guide menu's "Recalibrate the arrow" and `/polestar recalibrate`) drops the held line,
+  the rests and the saved heading, reads the player and the log again and polls once more
+  at once. A pick-up, a hand-in, a flight master and the sell, repair
   and gathering lines never do. The guide, its steps and its saved progress do not change; a
   click, a row the player chose or a dismissed line (`Own.hereDismiss`) wins over it. Messages:
   `WHILE_HERE_CHANGED` (a line came, its count changed, it went) and
