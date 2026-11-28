@@ -3502,14 +3502,15 @@ local function pickFor(goal)
 	end
 	table.sort(list, better)
 	if here then
-		for k = 1, math.min(Own.PLANNED, #list) do
+		-- No route plans while a route is read: the goals it reads (Own.routePoints) pick by the straight line.
+		for k = 1, Own.routing and 0 or math.min(Own.PLANNED, #list) do
 			local c = list[k]
 			local s = ns.TravelCost(nil, c) -- from where the player stands: flights, the Hearthstone
 			if s then cost[c] = s end
 		end
 		table.sort(list, better)
 		-- A vendor, an inn or a trainer on the guide's way beats a nearer one off it.
-		if Own.ROUTE_PICKED[goal.t] and not goal.byPlace then Own.routeFirst(list, tier) end
+		if Own.ROUTE_PICKED[goal.t] and not goal.byPlace then Own.routeFirst(list, tier, goal) end
 	end
 	p = { list = list, i = #list > 0 and 1 or 0, gen = contextGen, tier = tier }
 	if not Own.routing then picks[goal] = p end -- a pick made while a route is read is not the goal's own
@@ -5724,6 +5725,8 @@ end
 
 -- Guide id -> the `placing` that Reset everything began (#4111): the placing it holds for, no other.
 Own.freshPlacing = {}
+-- Guide id -> the `placing` of a placing that keeps the class training steps open (Own.placeIfMoved).
+Own.keepTraining = {}
 
 -- Skipped earlier (#86). The high-water mark (anchorStep with turnedOnly) is
 -- the furthest step the character has done quest work in. The open accepts
@@ -5911,6 +5914,7 @@ local function place()
 	local addedAll = ns.CharState().added
 	local added = type(addedAll) == "table" and addedAll[guide.id] or nil
 	local fromTab = logReady and Own.logPlaced[guide.id]
+	local keepTraining = placing ~= nil and Own.keepTraining[guide.id] == placing
 	local anchor = anchorStep(added, fromTab)
 	-- After Reset everything (#4111) the placing it began starts the guide at the first quest the player can take: nothing is passed as skipped earlier.
 	local mark = Own.freshPlacing[guide.id] ~= placing and logReady and not Own.everyStep(guide) and anchorStep(added, fromTab, true) or 0
@@ -6046,6 +6050,8 @@ local function place()
 			for g, goal in ipairs(goals) do
 				local t = goal.t
 				local soft = (t ~= "task" and isManual(goal)) or latchable(goal) or isBagCount(goal)
+				-- Re-placed in play (Own.placeIfMoved): quest work done further on is no sign the class was trained.
+				if keepTraining and t == "train" and goal.class then soft = false end
 				-- What an update added holds nothing (Own.passAdded passes it).
 				if open(s, g, goal) and not gated(goal)
 					and not (soft and (behind or now or ((s < lastOut or whole) and travel(t))))
@@ -10586,9 +10592,14 @@ function Own.routePoints()
 	for k = 1, Own.orderSteps(steps, from, Own.ROUTE_STEPS) do
 		local s = steps[k]
 		for g, goal in ipairs(guide.steps[s].goals) do
-			if goalApplies(goal) and goal.map and goal.x and goal.y and not goalDone(s, g, goal) then
-				pts[#pts + 1] = { map = goal.map, x = goal.x, y = goal.y, f = goal.f, goal = goal }
-				break
+			if goalApplies(goal) and goal ~= Own.routing and not goalDone(s, g, goal) then
+				-- A class training goal has no point of its own: where it is done is the trainer picked for the character (Own.goalSpot).
+				-- Another pick ahead is no place of the route: its place follows from the route (a second vendor does not move the first).
+				local map, x, y, f = Own.goalSpot(goal, true)
+				if map then
+					pts[#pts + 1] = { map = map, x = x, y = y, f = f, goal = goal }
+					break
+				end
 			end
 		end
 	end
@@ -10652,10 +10663,10 @@ end
 
 -- `list` (pickFor's ranking) with its route pick moved to the front. Not while
 -- a route pick is under way: a goal that the route reads asks for its own pick
--- without the route.
-function Own.routeFirst(list, tier)
+-- without the route, and the route leaves out the goal being picked (Own.routing holds it).
+function Own.routeFirst(list, tier, goal)
 	if #list < 2 or Own.routing then return end
-	Own.routing = true
+	Own.routing = goal or true
 	local ok, c = pcall(Own.routePick, list, tier)
 	Own.routing = false
 	if not ok then error(c, 0) end
@@ -17206,9 +17217,11 @@ function Own.orderPoints(s, c, quests)
 end
 
 -- Where goal is done: its own point, else the candidate picked for the character (a smart goal such
--- as `train class` has candidates and no point). -> map, x, y, f | nil
-function Own.goalSpot(goal)
+-- as `train class` has candidates and no point). With `classOnly`, only a class training goal counts
+-- so: another pick (a vendor) is no place of its own for the route to read. -> map, x, y, f | nil
+function Own.goalSpot(goal, classOnly)
 	if goal.map and goal.x and goal.y then return goal.map, goal.x, goal.y, goal.f end
+	if classOnly and not (goal.t == "train" and goal.class) then return nil end
 	local c = goal.candidates and chosen(goal)
 	if c and c.map and c.x and c.y then return c.map, c.x, c.y, c.f end
 	return nil
@@ -19199,9 +19212,10 @@ end
 
 -- Works the loaded guide out again from the quest log, as when it was just
 -- opened (placement runs again in the evaluation).
-function Own.placeAgain()
+function Own.placeAgain(keepTraining)
 	refreshPlayer()
 	pin, pinDone, aim, passedUpTo, placing = nil, nil, nil, 0, GetTime() + PLACE_SECONDS
+	Own.keepTraining[guide.id] = keepTraining and placing or nil
 	evaluate()
 end
 
@@ -19262,7 +19276,7 @@ end
 -- player. An undone placement stays undone (place). True if it evaluated.
 function Own.placeIfMoved()
 	if not Own.placementStale() then return false end
-	Own.placeAgain()
+	Own.placeAgain(true)
 	return true
 end
 ns.RegisterEvent("ZONE_CHANGED_NEW_AREA", Own.placeIfMoved)

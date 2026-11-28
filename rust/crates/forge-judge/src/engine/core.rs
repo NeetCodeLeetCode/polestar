@@ -194,6 +194,8 @@ pub(crate) struct Sim<'a> {
 	picks: FxHashMap<GRef, Pick>,
 	/// Own.routing: a route is being read, so the goals it reads pick without it and keep no pick.
 	routing: bool,
+	/// The goal whose pick is under way: the route it reads leaves it out.
+	routing_for: Option<GRef>,
 	spot_chosen: FxHashMap<GRef, usize>,
 	spot_seen: FxHashMap<(GRef, usize), f64>,
 	asking: FxHashSet<usize>,
@@ -418,6 +420,7 @@ impl<'a> Sim<'a> {
 			context_gen: 0,
 			picks: FxHashMap::default(),
 			routing: false,
+			routing_for: None,
 			spot_chosen: FxHashMap::default(),
 			spot_seen: FxHashMap::default(),
 			asking: FxHashSet::default(),
@@ -1774,6 +1777,20 @@ impl<'a> Sim<'a> {
 		Some(if c1 != c2 { CROSS_CONTINENT } else { ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt() / RUN_SPEED })
 	}
 
+	/// Own.goalSpot(goal, true): where goal g of step s is done: its own point, else for a class training goal
+	/// (candidates and no point) the trainer picked for the character.
+	fn goal_spot(&mut self, s: usize, g: usize) -> Option<Pt> {
+		let goal = self.gd().goal(s, g);
+		if let (Some(m), Some(x), Some(y)) = (goal.map, goal.x, goal.y) {
+			return Some((m, x, y, goal.era));
+		}
+		if !(goal.t == T::Train && goal.class) {
+			return None;
+		}
+		let c = &goal.candidates.as_ref()?[self.chosen(s, g)?];
+		Some((c.map?, c.x?, c.y?, c.era))
+	}
+
 	/// Own.routePoints: the first open goal with coordinates of each of the next ROUTE_STEPS applicable
 	/// steps from the live step (the step on screen when none is live), in order.
 	fn route_points(&mut self) -> Vec<Pt> {
@@ -1786,10 +1803,9 @@ impl<'a> Sim<'a> {
 				continue;
 			}
 			for g in 1..=gd.step(s).goals.len() {
-				let goal = gd.goal(s, g);
-				if let (Some(m), Some(x), Some(y)) = (goal.map, goal.x, goal.y) {
-					if self.goal_applies(s, g) && !self.goal_done(s, g).done {
-						pts.push((m, x, y, goal.era));
+				if self.routing_for != Some((self.gi(), s, g)) && self.goal_applies(s, g) && !self.goal_done(s, g).done {
+					if let Some(pt) = self.goal_spot(s, g) {
+						pts.push(pt);
 						break;
 					}
 				}
@@ -1860,13 +1876,15 @@ impl<'a> Sim<'a> {
 
 	/// Own.routeFirst: `list` (pickFor's ranking) with its route pick moved to the front. Not while a route
 	/// pick is under way.
-	fn route_first(&mut self, list: &mut Vec<usize>, tier: &[f64], cands: &[Cand]) {
+	fn route_first(&mut self, gr: GRef, list: &mut Vec<usize>, tier: &[f64], cands: &[Cand]) {
 		if list.len() < 2 || self.routing {
 			return;
 		}
 		self.routing = true;
+		self.routing_for = Some(gr);
 		let pick = self.route_pick(list, tier, cands);
 		self.routing = false;
+		self.routing_for = None;
 		if let Some(c) = pick.filter(|&c| Some(&c) != list.first()) {
 			list.retain(|&i| i != c);
 			list.insert(0, c);
@@ -1942,7 +1960,7 @@ impl<'a> Sim<'a> {
 			list.sort_by(|&a, &b| better(a, b, &cost));
 			// A vendor, an inn or a trainer on the guide's way beats a nearer one off it.
 			if matches!(goal.t, T::Vendor | T::Buy | T::Sethome | T::Train) {
-				self.route_first(&mut list, &tier, cands);
+				self.route_first(gr, &mut list, &tier, cands);
 			}
 		}
 		let i = if list.is_empty() { 0 } else { 1 };
