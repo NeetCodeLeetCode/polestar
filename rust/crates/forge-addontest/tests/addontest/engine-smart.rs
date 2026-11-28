@@ -78,12 +78,14 @@ fn an_undead_horde_player_in_the_barrens_is_sent_to_the_nearest_horde_trainer_ne
 		"#,
 		true,
 	);
-	assert_eq!(out["first"], json!([3373, "Arnok", 1411, 50, 50, 2]));
-	assert_eq!(out["wp"], json!([1411, 50, 50, "Learn Journeyman First Aid"]));
-	assert_eq!(out["cycled"], json!(["Rawrk", "Nurse Neela", "Arnok"]));
-	assert_eq!(out["wpAfter"], 1411);
+	// The class trainer step after it is in Orgrimmar (Own.routePoints counts it): the First Aid trainer there is on
+	// the way, so it comes before the nearer one in Durotar.
+	assert_eq!(out["first"], json!([5943, "Rawrk", 1454, 50, 50, 2]));
+	assert_eq!(out["wp"], json!([1454, 50, 50, "Learn Journeyman First Aid"]));
+	assert_eq!(out["cycled"], json!(["Arnok", "Nurse Neela", "Rawrk"]));
+	assert_eq!(out["wpAfter"], 1454);
 	assert_eq!(out["text"], "Learn Journeyman First Aid");
-	assert_eq!(out["detail"], "from Arnok");
+	assert_eq!(out["detail"], "from Rawrk");
 }
 
 #[test]
@@ -111,7 +113,8 @@ fn candidates_are_re_picked_on_zone_change_and_landing_not_on_every_move_nav_est
 		"#,
 		true,
 	);
-	assert_eq!(out, json!([3373, 3373, 2798, 5943]));
+	// The class trainer step after it is in Orgrimmar (Own.routePoints counts it): Orgrimmar's First Aid trainer is on the way.
+	assert_eq!(out, json!([5943, 5943, 2798, 5943]));
 }
 
 #[test]
