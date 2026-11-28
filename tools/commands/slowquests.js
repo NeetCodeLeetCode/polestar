@@ -56,6 +56,8 @@ function buildSlowList(list, db, classQuests = new Set()) {
 	const level = list.level || {};
 	if (!(typeof level.threshold === 'number' && level.threshold > 0 && level.threshold < 1)) errors.push('level.threshold must be a number between 0 and 1');
 	if (!(Number.isInteger(level.fromGap) && level.fromGap >= 1)) errors.push('level.fromGap must be a whole number of levels, 1 or more');
+	const time = list.time || {};
+	for (const k of ['killMinutes', 'baseMinutes']) if (!(typeof time[k] === 'number' && time[k] > 0)) errors.push(`time.${k} must be a number of minutes over 0`);
 	const seen = new Map();
 	const claim = (kind, row, i) => {
 		const where = `${kind}[${i}] ${row.name || ''}`.trim();
@@ -100,7 +102,7 @@ function buildSlowList(list, db, classQuests = new Set()) {
 	// `keep` row or a class quest.
 	const skip = new Set([...classQuests, ...seen.keys()]);
 	const byLevel = slowFromLevels(db, levelMedians(db, classQuests), level.threshold, level.fromGap, skip);
-	return { rows, keep: list.keep || [], codes, byLevel };
+	return { rows, keep: list.keep || [], codes, byLevel, time: list.time };
 }
 
 // The `quest:level` pairs, in quest order, as chunks of one string.
@@ -113,7 +115,7 @@ function levelChunks(byLevel) {
 }
 
 // One string of ids per code, read with string.find (Polestar's core at login has a memory budget).
-function toLua({ codes, byLevel }) {
+function toLua({ codes, byLevel, time }) {
 	const chunks = (ids) => {
 		const lines = [];
 		for (let i = 0; i < ids.length; i += 16) lines.push(ids.slice(i, i + 16).join(' '));
@@ -162,6 +164,10 @@ function toLua({ codes, byLevel }) {
 		'\tif from and level >= from then return "slow-xp" end',
 		'\treturn nil',
 		'end',
+		'',
+		'-- The time model the build scores with (data/codex/slow-quests.json, `time`): minutes a kill takes, minutes of',
+		'-- talk at both ends of a quest. The step reorder (Core/StepOrder.lua) counts a step\'s work with them.',
+		`List.KILL_MINUTES, List.BASE_MINUTES = ${time.killMinutes}, ${time.baseMinutes}`,
 		'',
 		'ns.SlowQuestList = List',
 		'',

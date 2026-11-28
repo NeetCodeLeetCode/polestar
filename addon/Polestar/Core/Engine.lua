@@ -59,6 +59,7 @@ ns.RegisterDefaults("behavior", {
 	whileHereAim = false, -- the arrow leads to a nearby objective of a later step by itself when it costs few seconds off the way (Own.hereAutoAim)
 	whileHereAimSeconds = 15, -- seconds of extra walking such a detour may cost (5-60)
 	stepReorder = false, -- the window shows the next of the guide's steps that walks least first (Own.orderTick, Core/StepOrder.lua)
+	stepReorderXp = false, -- with stepReorder: the order is the one that pays XP soonest, taking no longer in all than the guide's (Own.orderFill)
 	whileHereSound = true, -- a soft chime for each line that appears, at least 5 s apart (UI/WhileHere.lua)
 	whileHereStepKey = true, -- the step key also targets the lines' mobs, after the step's own (QoL/Buttons.lua, Buttons.HereNames)
 })
@@ -17131,7 +17132,7 @@ function Engine.Recalibrate()
 	-- With the reorder on, the steps are chosen again too: the step on screen goes back to the live one.
 	if ns.Get("behavior.stepReorder") then
 		local st = Own.orderOf()
-		st.pin, st.plan, st.min, st.cool, st.key = nil, nil, nil, 0, nil
+		st.pin, st.plan, st.min, st.cool, st.key, st.rest = nil, nil, nil, 0, nil, nil
 		if pin then Own.view(nil) end
 	end
 	evaluate()
@@ -17168,29 +17169,39 @@ Own.ORDER_KINDS = { accept = true, turnin = true, kill = true, collect = true, i
 --   pin   the step this module put on screen        plan  the steps in the order shown, while one is
 --   min   the nearest yards the player got to it     cool  the time before which it takes nothing (a rest)
 --   key, win  the window of steps and what it was built for
+--   rest  the plan taken last, kept after its first step is done: the XP order takes no longer in all than it
+--   keep, seen  that plan as an order of the window (reused)
 Own.orderStates = setmetatable({}, { __mode = "k" })
 function Own.orderOf()
 	local st = Own.orderStates[guide]
 	if not st then
-		st = { cool = 0, win = {} }
+		st = { cool = 0, win = {}, keep = {}, seen = {} }
 		Own.orderStates[guide] = st
 	end
 	return st
 end
 
 -- The quest ids a step's open goals touch, and whether every open goal of the step can be done
--- now, from world position c: -> entry x, y, exit x, y, `quests`, `ready`; nil when the step
--- cannot move.
+-- now, from world position c: -> entry x, y, exit x, y, `ready`, the XP the step pays and the
+-- seconds its work takes (Own.orderWorth); nil when the step cannot move.
 function Own.orderPoints(s, c, quests)
 	local step = guide.steps[s]
 	if step.when ~= nil or step.skipto ~= nil or not Own.lookable(s) or Own.groupPending(step) or Own.dungeonPending(step) then return nil end
 	local C, ex, ey, ox, oy, ready = Compat(), nil, nil, nil, nil, true
-	local accepted = {}
+	local accepted, xp, kills, ends = {}, 0, 0, 0
 	for q in pairs(quests) do quests[q] = nil end
 	for g, goal in ipairs(step.goals) do
 		if goalApplies(goal) and blocks(goal) and not goalDone(s, g, goal) and not Own.goalSkipped(s, g) and not unavailableFor(goal) then
 			if not Own.ORDER_KINDS[goal.t] or goal.escort or goal.limit or goal.group or goal.either then return nil end
 			local q = goal.quest
+			local kind = goal.t
+			if kind == "accept" or kind == "turnin" then ends = ends + 1 end
+			if kind == "kill" or kind == "collect" then
+				kills = kills + (tonumber(goal.count) or 1)
+			elseif kind == "use" or kind == "interact" or kind == "complete" then
+				kills = kills + 1
+			end
+			if kind == "turnin" and q then xp = xp + (Own.questXp(q) or Own.AIM_NEUTRAL / 100 * (player.xpMax or 0)) end
 			if q then
 				quests[q] = true
 				if goal.t == "accept" then
@@ -17209,7 +17220,16 @@ function Own.orderPoints(s, c, quests)
 		end
 	end
 	if not ex then return nil end
-	return ex, ey, ox, oy, ready
+	return ex, ey, ox, oy, ready, xp, Own.orderWork(kills, ends)
+end
+
+-- The seconds the work of a step takes: kills (and what counts as one: an item, a use, a click) at the
+-- minutes a kill takes, and the talk at each end of a quest at half the minutes a quest takes in all: the
+-- time model Skip slow quests scores with (data/codex/slow-quests.json, `time`, via Core/SlowQuestList.lua).
+function Own.orderWork(kills, ends)
+	local List = ns.SlowQuestList
+	local kill, base = List and List.KILL_MINUTES or 0.25, List and List.BASE_MINUTES or 1
+	return (kills * kill + ends * base / 2) * 60
 end
 
 -- Where goal is done: its own point, else the candidate picked for the character (a smart goal such
@@ -17233,11 +17253,11 @@ function Own.orderFill(Order, c)
 		local s = computed
 		while s and win.n < Order.MAX do
 			local w = win[win.n + 1] or { quests = {} }
-			local ex, ey, ox, oy, ready = Own.orderPoints(s, c, w.quests)
+			local ex, ey, ox, oy, ready, xp, work = Own.orderPoints(s, c, w.quests)
 			if not ex then break end
 			win.n = win.n + 1
 			win[win.n] = w
-			w.s, w.ex, w.ey, w.ox, w.oy, w.ready = s, ex, ey, ox, oy, ready
+			w.s, w.ex, w.ey, w.ox, w.oy, w.ready, w.xp, w.work = s, ex, ey, ox, oy, ready, xp, work
 			s = nextOpen(s)
 		end
 		win.tail = nil
@@ -17282,9 +17302,11 @@ function Own.orderFill(Order, c)
 	end
 	Order.tx, Order.ty = nil, nil
 	if win.tail then Order.tx, Order.ty = win.tx, win.ty end
+	Order.per, Order.byXp = Own.HERE_WINDING / Own.HERE_SPEED, ns.Get("behavior.stepReorderXp") == true
 	for i = 1, win.n do
 		local w = win[i]
 		Order.ex[i], Order.ey[i], Order.ox[i], Order.oy[i] = w.ex, w.ey, w.ox, w.oy
+		Order.xp[i], Order.work[i] = w.xp, w.work
 	end
 	return win.n
 end
@@ -17293,7 +17315,7 @@ end
 function Own.orderRelease(cool)
 	local st = Own.orderOf()
 	local was = st.pin
-	st.pin, st.plan, st.min = nil, nil, nil
+	st.pin, st.plan, st.min, st.rest = nil, nil, nil, nil
 	if cool then st.cool = GetTime() + Own.AIM_COOL end
 	if was and pin == was then
 		Own.view(nil)
@@ -17307,14 +17329,47 @@ function Own.orderFar(Order, i, px, py)
 	return ((px - Order.ex[i]) ^ 2 + (py - Order.ey[i]) ^ 2) ^ 0.5
 end
 
+-- The plan taken last, as an order of the window (its steps still open in its order, then the others in the
+-- guide's): the order the XP order must take no longer in all than. nil with no plan, with a plan the walk order
+-- took (it is the shortest walk, so the XP order could never beat it), or when it no longer keeps each step after
+-- the steps it needs.
+function Own.orderKeep(Order, st, win, n)
+	local rest = st.rest
+	if not (Order.byXp and rest and st.restXp) then return nil end
+	local keep, seen, m = st.keep, st.seen, 0
+	for i = 1, n do seen[i] = false end
+	for k = 1, #rest do
+		for i = 1, n do
+			if win[i].s == rest[k] and not seen[i] then
+				m = m + 1
+				keep[m], seen[i] = i, true
+			end
+		end
+	end
+	for i = 1, n do
+		if not seen[i] then
+			m = m + 1
+			keep[m] = i
+		end
+	end
+	for pos = 1, n do
+		local need = Order.need[keep[pos]]
+		for q = pos + 1, n do
+			if need and need[keep[q]] then return nil end
+		end
+	end
+	return keep
+end
+
 -- Put step s on screen first (the plan is in `plan`, the steps in the order to do them), the player
 -- being `d` yards from where it is entered.
 function Own.orderTake(s, plan, d)
 	local st = Own.orderOf()
 	st.pin, st.min = s, d
-	st.plan = st.plan or {}
-	for k = 1, #st.plan do st.plan[k] = nil end
-	for k = 1, #plan do st.plan[k] = plan[k] end
+	st.plan, st.rest = st.plan or {}, st.rest or {}
+	st.restXp = ns.StepOrder.mode == "xp"
+	for k = 1, math.max(#st.plan, #st.rest) do st.plan[k], st.rest[k] = nil, nil end
+	for k = 1, #plan do st.plan[k], st.rest[k] = plan[k], plan[k] end
 	Own.view(s)
 	Own.hereDirty = true
 	return true
@@ -17329,7 +17384,10 @@ function Own.orderTick(c, px, py)
 	local st = guide and Own.orderOf()
 	-- Only a leveling guide moves: a class, dungeon or attunement guide is done in its own order (Own.everyStep).
 	local on = Order and guide and computed and c and ns.Get("behavior.stepReorder") and not Own.everyStep(guide)
-	if not on then return st and st.pin ~= nil and Own.orderRelease(false) or false end
+	if not on then
+		if st then st.rest = nil end
+		return st and st.pin ~= nil and Own.orderRelease(false) or false
+	end
 	-- The step it showed was done and the pin followed forward (evaluate): not the player's pin. It goes
 	-- back to the live step, and the window says so even when nothing is taken in its place.
 	local moved = false
@@ -17348,10 +17406,13 @@ function Own.orderTick(c, px, py)
 	local n = Own.orderFill(Order, c)
 	local win = st.win
 	if n < 2 then return (st.pin ~= nil and Own.orderRelease(false)) or moved end
+	Order.keep = Own.orderKeep(Order, st, win, n)
 	Order.Best(n, px, py)
-	local per = Own.HERE_WINDING / Own.HERE_SPEED
+	local per = Order.per
 	local best = Order.order[1]
-	local saved = (Order.base - Order.cost) * per
+	-- Seconds the best order saves over the guide's own; the guide's own order taking longer in all than the plan
+	-- gone by (Order.forced) is no order to fall back to: the best is shown whatever it saves.
+	local saved = Order.forced and math.huge or (Order.base - Order.cost) * per
 	local held
 	for i = 1, n do
 		if win[i].s == st.pin then held = i end

@@ -18,6 +18,7 @@
 	"behavior.skipSlow",
 	"behavior.spokenDelay",
 	"behavior.stepReorder",
+	"behavior.stepReorderXp",
 	"behavior.trainReminder",
 	"behavior.warnClosing",
 	"behavior.whileHere",
