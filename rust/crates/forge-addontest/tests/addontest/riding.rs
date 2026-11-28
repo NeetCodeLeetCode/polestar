@@ -176,7 +176,7 @@ fn clicking_dismiss_hides_the_banner() {
 }
 
 // Take me there is a trip to the trainer (#1686): the riding offer goes, the guide window's trip banner takes its
-// place ("On the way to … (Riding trainer)", with "Back to the guide"), and the trip ends at the trainer. Back to
+// place ("Riding trainer: on the way to …", with "Back to the guide"), and the trip ends at the trainer. Back to
 // the guide leaves no banner.
 #[test]
 fn clicking_take_me_there_sets_nav_arrow_to_trainer_and_the_trip_banner_replaces_the_offer() {
@@ -194,7 +194,7 @@ fn clicking_take_me_there_sets_nav_arrow_to_trainer_and_the_trip_banner_replaces
 	"#,
 	);
 	let out = &out[0];
-	assert_eq!(out["trip"], json!([true, "On the way to Randal Hunter (Riding trainer).", "Back to the guide"]), "the offer gives way to the trip");
+	assert_eq!(out["trip"], json!([true, "Riding trainer: on the way to Randal Hunter.\nThe guide waits at step 3: Kill Kobold Vermin.", "Back to the guide"]), "the offer gives way to the trip");
 	assert_eq!(out["back"], true, "back to the guide: no banner left");
 	assert_eq!(out["map"], 1429);
 	assert_eq!(out["x"], 84.3);

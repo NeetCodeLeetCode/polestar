@@ -91,6 +91,29 @@ ns.UI.GuideFrame.Part(function(GF)
 		return t and t.mine and { label = t.label } or nil
 	end
 
+	-- What the arrow follows while it is off the guide (a trip, or a point of the player's own), and what the guide
+	-- does meanwhile: "Next stop: on the way to The Barrens." and, under it, "The guide waits at step 17: Turn in
+	-- "Hidden Enemies"." The second line names the step and goal that "Back to the guide" puts the arrow on again; the
+	-- window under the banner still shows that step, so without it the banner read as the step's own errand.
+	-- kind: "trip" (n: Nav.Trip's { name, label }) or "own" (n: ownPoint's { label }).
+	function GF.TripText(kind, n)
+		local text
+		if kind == "own" then
+			text = string.format(L["Your map point: on the way to %s."], n.label or "")
+		elseif n.label and n.label ~= "" and n.label ~= n.name then
+			text = string.format(L["%s: on the way to %s."], n.label, n.name or "")
+		else
+			text = string.format(L["On the way to %s."], n.name or "")
+		end
+		local E = Engine()
+		local live = E and E.GetLiveStep and E.GetLiveStep()
+		if not live then return text end
+		local wp = E.GetWaypoint and E.GetWaypoint()
+		local goal = wp and type(wp.label) == "string" and wp.label ~= "" and wp.label or nil
+		return text .. "\n" .. (goal and string.format(L["The guide waits at step %d: %s."], UI.StepNo(live, E), goal)
+			or string.format(L["The guide waits at step %d."], UI.StepNo(live, E)))
+	end
+
 	-- The flight map notice (#1795, #2189): on a continent where no flight map has opened yet for this character,
 	-- Polestar can't tell the flight paths it has from those it lacks (Nav.GetTaxiSeen), so the route flies from and to
 	-- the ones it may have at a cost (Nav.TaxiMaybe), and players read the flight masters they had as ones to learn.
@@ -692,8 +715,7 @@ ns.UI.GuideFrame.Part(function(GF)
 			banner.Close:Show()
 		elseif kind == "trip" or kind == "own" then
 			banner.Icon:SetTexture(Theme.Media("icon-goto"))
-			banner.Text:SetText(kind == "own" and string.format(L["On the way to your map point (%s)."], n.label or "")
-				or string.format(L["On the way to %s (%s)."], n.name or "", n.label or ""))
+			banner.Text:SetText(GF.TripText(kind, n))
 			placeLink(banner.Jump, L["Back to the guide"], 0, -4)
 			banner.Close:Hide()
 		elseif kind == "ended" then

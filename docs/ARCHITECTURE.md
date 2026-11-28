@@ -4809,7 +4809,10 @@ Polestar.Pins.MinimapCursor() -> dNorth, dWest | nil      -- yards from the play
   click) ends the trip quietly. `NAV_TRIP(trip)` fires as a trip starts and
   `NAV_TRIP(nil)` as it ends. On the way, the guide window shows a banner
   and the button's list a first entry, both "Back to the guide"
-  (`Nav.EndTrip()`).
+  (`Nav.EndTrip()`). The banner (`GF.TripText`) leads with the trip's kind
+  ("Next stop: on the way to The Barrens.") and says under it where the guide
+  waits ("The guide waits at step 17: Turn in "Hidden Enemies"."): the
+  window under it still shows that step, not the trip.
 - **Trips are Nav's** (#1686), for every "take me there": nearby services,
   a dungeon's entrance (the Dungeons page's "Guide me to the entrance" and
   the world map's dungeon pins, `ends = "instance"`: it ends through the
@@ -8434,8 +8437,9 @@ Polestar.QoL.XPMark.frame                                -- the mark, once made
   level, short: Fitz, 0.3.6, players read a few bars short as being behind);
   "Behind by 1.2 levels: step 32 grinds to level 14 (~12m)" (a `level` goal
   ahead makes up the gap, said plainly); in the warning colour, "Behind by
-  2.4 levels for level 24 by step 21: grind ~1h 10m before then" ("and no
-  grind step ahead" without a rate). It never names a quest or a quest's
+  2.4 levels: the guide expects level 24 by step 21. Grind ~1h 10m to catch
+  up." ("and has no grind step before it" without a rate; the row's hover adds
+  a note on what to do, as `GF.PaceText`'s second value). It never names a quest or a quest's
   level, and no step says what level its quest is (Fitz, #3438: players read
   "Level 38 quest: you're 35.7" as a warning on normal steps). Grinding time
   is the XP short over the QoL tracker's XP an hour. Nothing without the

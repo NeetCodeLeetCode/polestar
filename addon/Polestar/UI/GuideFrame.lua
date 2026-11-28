@@ -3843,7 +3843,7 @@ GF.Part(function(GF)
 		xp:SetScript("OnEnter", function(self)
 			if self.psSummary or self.psLine then
 				local lines = {}
-				for _, l in ipairs({ self.psLine or false, self.psRest or false, self.psSummary or false }) do
+				for _, l in ipairs({ self.psLine or false, self.psPaceNote or false, self.psRest or false, self.psSummary or false }) do
 					if l then lines[#lines + 1] = l end
 				end
 				W.Tooltip(self, tooltipAnchor(), L["Experience"], lines)
