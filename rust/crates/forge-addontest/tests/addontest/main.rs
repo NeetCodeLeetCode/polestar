@@ -21,6 +21,7 @@ mod bagsmith;
 mod class_guide_level_back;
 #[path = "class-quests.rs"]
 mod class_quests;
+mod class_routing;
 #[path = "class-skip.rs"]
 mod class_skip;
 mod closes;
@@ -166,7 +167,6 @@ mod engine_live_detour;
 mod engine_live_order;
 #[path = "engine-live-speed.rs"]
 mod engine_live_speed;
-mod class_routing;
 #[path = "engine-lost-quest.rs"]
 mod engine_lost_quest;
 #[path = "engine-manual.rs"]
