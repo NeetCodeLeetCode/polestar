@@ -176,15 +176,13 @@ class_test!(warlock_the_binding_chain, "WARLOCK", 1689, 1738);
 class_test!(druid_chain, "DRUID", 6122, 29);
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Known gaps (found by the audit, not fixed here): each test says what should hold and fails today. Run them with
-// `cargo test -p forge-addontest --test addontest class_routing -- --ignored`.
+// Gaps the audit found, each fixed with its test turned on.
 // ---------------------------------------------------------------------------------------------------------------------
 
 // A class training step first, then a quest step. The player takes the later quest early (a pick-up on the way), then
-// enters a new zone: placement runs again (Own.placeIfMoved) and passes the training step because later quest work is
-// done (Own.place, `leadsToDone`), so the class trainer is never visited and the guide's training stop is gone.
+// enters a new zone: placement runs again (Own.placeIfMoved). It used to pass the training step because later quest work
+// is done (Own.place, `leadsToDone`), so the class trainer was never visited. A placing in play keeps the step open.
 #[test]
-#[ignore = "known gap: a new zone places the guide again and ticks the class training step (Engine.lua place(), Own.placeIfMoved)"]
 fn every_class_keeps_its_training_step_when_a_later_quest_is_taken_early_and_a_zone_changes() {
 	for class in CLASSES {
 		let g = format!(
@@ -255,10 +253,9 @@ fn the_reorder_counts_the_walk_to_the_class_trainer_after_its_window() {
 	}
 }
 
-// The route-aware vendor pick reads the guide's next located stops. A class training step in between has none, so a
-// vendor on the way to the trainer loses to one on the way to the stop after it.
+// The route-aware vendor pick reads the guide's next located stops. A class training step in between has no point of
+// its own (Own.goalSpot gives the trainer picked for the character), so a vendor on the way to the trainer must win.
 #[test]
-#[ignore = "known gap: Own.routePoints skips a step whose goals have no coordinates (a smart `train class` goal)"]
 fn the_vendor_pick_counts_the_class_trainer_stop_between_two_steps() {
 	let class = "MAGE";
 	let g = format!(
