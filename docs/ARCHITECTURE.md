@@ -1867,7 +1867,7 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- of that level does, and lists the level a quest first falls under `level.threshold` of it, at `level.fromGap` levels over
 -- the quest or more. The walk is not in the data, so the rate is an upper bound.
 -- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
--- ns.NextStop (Core/NextStop.lua, docs/NEXT-STOP.md): ranks hubs, zones and dungeons by XP for each minute. Plain numbers, no game calls. Nothing calls it yet.
+-- ns.NextStop (Core/NextStop.lua, docs/NEXT-STOP.md): ranks hubs, zones and dungeons by XP for each minute. Plain numbers, no game calls. Its places come from Core/NextStopPlaces.lua; UI/NextStopCard.lua shows the top one (behavior.nextStop, on by default, used only while Fastest XP is on).
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")

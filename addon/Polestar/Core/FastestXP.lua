@@ -76,6 +76,9 @@ function FX.Values(skip)
 	return out
 end
 
+-- Whether this character plays Hardcore (the levers marked hardcore = "leave" are not written; Core/NextStop.lua's filter).
+FX.Hardcore = hardcore
+
 function FX.On() return ns.Get("behavior.fastestXp") and true or false end
 
 function FX.Changed()

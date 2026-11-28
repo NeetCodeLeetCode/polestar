@@ -579,6 +579,8 @@ mod ui_lookup;
 mod ui_materials;
 #[path = "ui-movers.rs"]
 mod ui_movers;
+#[path = "ui-next-stop-card.rs"]
+mod ui_next_stop_card;
 #[path = "ui-options.rs"]
 mod ui_options;
 #[path = "ui-packs.rs"]
