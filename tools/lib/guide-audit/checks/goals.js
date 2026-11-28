@@ -116,10 +116,19 @@ function turninChecks(ctx, here, goal, q, add) {
 	placeCheck(ctx, here, goal, 'ender', add);
 }
 
+// A hand-set place within 50 map percent-tenths of the arrow, or a guide fix that names the NPC by id.
+function documentedPoint(ref, goal) {
+	const doc = ref.documented;
+	if (!doc) return false;
+	const near = (doc.places.get(goal.quest) || []).some((a) => a.map === goal.map && Math.abs(a.x - goal.x) < 1 && Math.abs(a.y - goal.y) < 1);
+	return near || new RegExp(`\\bnpc ${goal.npc}\\b|\\(${goal.npc}\\)`).test(doc.fixText);
+}
+
 // The arrow's point against where the NPC stands.
 function placeCheck(ctx, here, goal, role, add) {
 	if (goal.npc == null || goal.map == null || goal.x == null) return;
 	if (ctx.ref.placed && ctx.ref.placed.has(`${goal.quest}:${role}`)) return;   // set by hand in data/places.json
+	if (documentedPoint(ctx.ref, goal)) return;
 	const { yards: d, at } = nearestSpawnAt(ctx.ref, 'npc', goal.npc, goal.map, goal.x, goal.y);
 	if (d === Infinity || d < MOVED_WARN) return;
 	const spawns = (ctx.ref.spawns.npc.get(goal.npc) || []).length;

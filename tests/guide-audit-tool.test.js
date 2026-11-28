@@ -78,6 +78,15 @@ test('corrections change what the audit reads: a race fix closes nothing it open
 });
 
 // What no shipped guide may do any more. Each of these is zero today; a new one is a step a player cannot finish.
+test('an arrow point the maintainers documented is not called a moved NPC', () => {
+	const ref = loadRef();
+	// Gann Stonespire (3341) walks the road; a guide fix names him by id. Eye of Kilrogg's point is a hand-set place.
+	const roaming = guideOf([[goal('accept', 843, { npc: 3341, map: 1413, x: 46.09, y: 81.28 })]]);
+	assert.ok(!checks(runAudit({ ref, guides: roaming, only: ['goals'] })).includes('npc-elsewhere'));
+	const placed = guideOf([[goal('turnin', 98252, { npc: 271181, map: 1440, x: 38.2, y: 58.1 })]]);
+	assert.ok(!checks(runAudit({ ref, guides: placed, only: ['goals'] })).includes('npc-elsewhere'));
+});
+
 test('the shipped guides keep the route-order and data checks at zero', () => {
 	const r = runAudit({ ref: loadRef(), guides: loadCompiled() });
 	const never = ['prereq-later', 'data-prereq-later', 'turnin-before-accept', 'level-locked', 'wrong-side', 'objective-differs', 'count-differs', 'text-unknown-id'];

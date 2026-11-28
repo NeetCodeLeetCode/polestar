@@ -9,6 +9,7 @@ const { ROOT } = require('../paths');
 const { loadPublicCorrections } = require('../data/corrections');
 const { toWorld } = require('./geo');
 const PLACES = path.join(ROOT, 'data', 'places.json');
+const FIXES = path.join(ROOT, 'data', 'guide-fixes.json');
 
 const DIR = path.join(ROOT, 'forever-db', 'data');
 
@@ -76,6 +77,22 @@ function placedEnds() {
 	return out;
 }
 
+// Points the maintainers documented by hand, per quest: a place in data/places.json (map and percent), or a guide fix
+// whose text names the NPC by id (a walker with recorded windows, say). The arrow there is meant to differ from the spawn.
+function documentedPoints() {
+	const out = { places: new Map(), fixText: '' };
+	const read = (file, key) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8'))[key] || [] : []);
+	for (const p of read(PLACES, 'places')) {
+		if (!p.at || p.at.map == null || p.quest == null) continue;
+		if (!out.places.has(p.quest)) out.places.set(p.quest, []);
+		out.places.get(p.quest).push(p.at);
+	}
+	for (const f of read(FIXES, 'fixes')) {
+		out.fixText += ` ${JSON.stringify([f.tip, f.note, f.source])}`;
+	}
+	return out;
+}
+
 // The tables, indexed the way the checks ask. `maps` turns world yards into map percent and back.
 function loadRef(dir = DIR, { corrections = true } = {}) {
 	const quests = new Map(rows('quest', dir).map((q) => [q.id, q]));
@@ -90,7 +107,7 @@ function loadRef(dir = DIR, { corrections = true } = {}) {
 		bucket.get(s.id).push(s);
 	}
 	const ref = {
-		quests, npcs, objects, frames, spawns, placed: placedEnds(),
+		quests, npcs, objects, frames, spawns, placed: placedEnds(), documented: documentedPoints(),
 		starts: group(rows('quest_start', dir), 'quest'),
 		ends: group(rows('quest_end', dir), 'quest'),
 		prereqs: group(rows('quest_prereq', dir), 'quest'),
