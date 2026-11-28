@@ -120,7 +120,7 @@ command and exit 2.
 | `qol build` | Spirit healers, flight masters and reagent vendors (`QoL/Data.lua`) |
 | `classrewards build` | What each class quest chain teaches or gives, for the guide window's class-quest card (`UI/ClassRewards.lua`) |
 | `classquests build` / `check` | Which class quest chains Polestar alerts for and which are optional (`Core/ClassQuestList.lua`, from `data/codex/class-quests.json`) |
-| `slowquests build` / `check` / `report` | The quests "Skip slow quests" leaves out (`Core/SlowQuestList.lua`, from `data/codex/slow-quests.json`, scored from `forever-db`); `report` prints each row's score and age |
+| `slowquests build` / `check` / `report` | The quests "Skip slow quests" leaves out (`Core/SlowQuestList.lua`, from `data/codex/slow-quests.json`, scored from `forever-db`, with the quests the character outlevels); `report` prints each row's score and age |
 | `itemdb build` | Moved to forge: `forge data itemdb` writes the `Polestar_ItemDB` item stats (`Items.lua`) |
 | `gear fetch` | Refreshes the cached sims; `gear build` moved to forge (`forge data gear`: Forever item stats, reward choices and stat weight bands) |
 | `questdb build` | Retired: `forge data questdb` writes the `Polestar_QuestDB` data addon |

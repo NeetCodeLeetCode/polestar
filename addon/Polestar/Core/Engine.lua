@@ -451,32 +451,39 @@ end
 
 -- behavior.skipSlow ("Skip slow quests"): the quests of Core/SlowQuestList.lua
 -- left out of a leveling guide, all their goals (goalApplies, as an escort the
--- player skips). One stays when a quest still worth doing needs it: the
--- prerequisites of every accept of the guide and the guides after it that is
--- not on the list, down the chain (Own.needsFrom, as chainNeeds does for grey
--- quests). It does not depend on the level, so it is cached with the chain.
+-- player skips): a quest of its hand-written list, and one the character has
+-- outlevelled until what it pays for its time falls far under what a quest of
+-- their level pays (the list's SlowAt, from the quest database). One stays when
+-- a quest still worth doing needs it: the prerequisites of every accept of the
+-- guide and the guides after it that is not slow, down the chain (Own.needsFrom,
+-- as chainNeeds does for grey quests). Cached with the chain, per level.
+function Own.slowCode(q)
+	local List = ns.SlowQuestList
+	return List and List.SlowAt(q, player.level or 1) or nil
+end
+
 local function slowNeeds(g)
 	local chain = Own.chainOf(g)
 	local c = chainNeedsCache[g.steps]
-	local set = c.slow
+	local key = "slow:" .. (player.level or 1)
+	local set = c[key]
 	if set then return set end
-	local List, open = ns.SlowQuestList, {}
+	local open = {}
 	for _, goal in ipairs(chain.accepts) do
-		if not List.Slow(goal.quest) then open[#open + 1] = goal end
+		if not Own.slowCode(goal.quest) then open[#open + 1] = goal end
 	end
 	set = Own.needsFrom(chain.pres, open)
-	c.slow = set
+	c[key] = set
 	return set
 end
 
 -- Whether "Skip slow quests" leaves quest q of the loaded guide out: the
--- setting on, a leveling guide, q on the list, neither in the log nor done,
--- and no quest worth doing that needs it. Never a class quest (goal: its goal, when known). A guide down the chain not loaded
+-- setting on, a leveling guide, q slow for the character, neither in the log
+-- nor done, and no quest worth doing that needs it. Never a class quest (goal: its goal, when known). A guide down the chain not loaded
 -- leaves its needs unknown, so the quest stays (as Engine.GreyLeftOut).
 function Own.slowSkipped(q, goal)
 	if not (q and guide and ns.Get("behavior.skipSlow")) then return false end
-	local List = ns.SlowQuestList
-	if not (List and List.Slow(q)) or Own.everyStep(guide) then return false end
+	if not (Own.slowCode(q) and not Own.everyStep(guide)) then return false end
 	-- Never a class quest: a goal for some classes only, or a quest the database opens to some classes only.
 	-- (A Class guide is not a leveling guide: Own.everyStep.)
 	local only = goal and goal.only
@@ -13856,7 +13863,7 @@ function Engine.LeftOutHere(i, alone)
 			return add(s, goal, "grey", L["Grey for you: pays %d%% XP (Skip grey quests)"]:format(share(a.qlvl)), { kind = "skipGrey" })
 		end
 		-- Left out by Skip slow quests (Own.slowSkipped): the code of its row says why.
-		if Own.slowSkipped(q) then return add(s, goal, "slow", Own.slowText(ns.SlowQuestList.Slow(q))) end
+		if Own.slowSkipped(q) then return add(s, goal, "slow", Own.slowText(Own.slowCode(q))) end
 		local u = unavailableFor(goal)
 		if not u then return end
 		-- On the step itself only an accept waiting for a level is out of sight (goalView).

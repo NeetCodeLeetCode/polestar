@@ -1860,7 +1860,12 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- quest on Core/SlowQuestList.lua (written by `slowquests build` from data/codex/slow-quests.json: rows with 2 or more
 -- sources, a review date and a code; a `low-drop` row the forever-db score says is fast is dropped by the build). Never
 -- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
--- done, nor one a quest not on the list needs (Own.slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
+-- done, nor one a quest not slow needs (slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
+-- A quest the character outlevels is slow too (Own.slowCode, SlowQuestList.SlowAt(q, level)): the build scores every quest
+-- of forever-db at every level (tools/lib/slow-quests.js barRate: its reward at the level-gap share plus the XP of the kills
+-- it asks, over the minutes of its work, as a share of that level's XP bar) against the median of the quests a character
+-- of that level does, and lists the level a quest first falls under `level.threshold` of it, at `level.fromGap` levels over
+-- the quest or more. The walk is not in the data, so the rate is an upper bound.
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
 Polestar.Engine.SkipLoses(questID?) -> { { id, title }, ... } | nil   -- the open accepts of this guide (other quests, other steps) that skipping questID, or with none the live step, would leave out; tried on the saved state and put back (see "Quests the player skipped")
