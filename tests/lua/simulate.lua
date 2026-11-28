@@ -154,6 +154,8 @@ local function act(i, g, r)
 	end
 	stub.advance(0.6)
 end
+-- The arrow-following player (arrow_player.lua) does what each goal does with this act, and plays the rest itself.
+if SIM_ACT_ONLY then SIM_ACT = act; return end
 local visited, stuck, guard = {}, nil, 0
 -- The engine may move on to the next guide (a hand-over) during any advance:
 -- from then on nothing here may read or act on G's steps.

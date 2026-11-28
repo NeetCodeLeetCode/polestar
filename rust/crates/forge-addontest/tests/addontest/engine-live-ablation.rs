@@ -28,7 +28,7 @@ struct Arm {
 }
 
 // The mode on, with the levers of `group` put back to the defaults.
-fn without(group: &str) -> String {
+pub(crate) fn without(group: &str) -> String {
 	format!(
 		r#"Polestar.Set("behavior.fastestXp", true); stub.advance(0.6)
 for _, lv in ipairs(Polestar.FastestXP.LEVERS) do
