@@ -437,8 +437,8 @@ local BUILTIN = {
 		-- The quests of Core/SlowQuestList.lua (Engine Own.slowSkipped): ones that cost far
 		-- more time than they pay, left out of the leveling guides.
 		{ kind = "toggle", key = "behavior.skipSlow", label = L["Skip slow quests"], new = "0.4.4",
-			help = L["Leaves out a short list of quests that cost far more time than they pay: rare drops, slow respawns, little XP for the walk. A quest you already took stays, and so does one a later quest needs. The guide window says what it left out."],
-			search = "slow quests, bad quests, skip quests, not worth it, low drop rate, waste of time, left out" },
+			help = L["Leaves out a short list of quests that cost far more time than they pay. One you took stays, and so does one a later quest needs."],
+			search = "slow quests, not worth it, left out" },
 		-- The quests an item starts, optional in the guides (Engine Own.itemStart): leave
 		-- them optional, lead the arrow to the drop, or leave them out until it drops.
 		{ kind = "dropdown", key = "behavior.rareDrops", label = L["Quests started by a rare drop"], new = "0.4.4",
