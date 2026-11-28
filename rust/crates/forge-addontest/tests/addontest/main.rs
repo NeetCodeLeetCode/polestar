@@ -220,6 +220,8 @@ mod engine_skip_undo;
 mod engine_skipquest;
 #[path = "engine-skipto.rs"]
 mod engine_skipto;
+#[path = "engine-slow-quests.rs"]
+mod engine_slow_quests;
 #[path = "engine-smart.rs"]
 mod engine_smart;
 #[path = "engine-stutter.rs"]

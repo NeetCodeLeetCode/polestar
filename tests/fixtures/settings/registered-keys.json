@@ -15,6 +15,7 @@
 	"behavior.rareDrops",
 	"behavior.routeChoice",
 	"behavior.skipGrey",
+	"behavior.skipSlow",
 	"behavior.spokenDelay",
 	"behavior.stepReorder",
 	"behavior.trainReminder",

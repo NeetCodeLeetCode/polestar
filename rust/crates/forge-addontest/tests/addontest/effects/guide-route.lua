@@ -54,6 +54,11 @@ return {
 				{ t = "accept", quest = 337, title = "An Old History Book", item = 2794, itemName = "An Old History Book", optional = true },
 			} },
 		} })
+		-- A quest of Core/SlowQuestList.lua (engine-slow-quests.rs): Guile of the Raptor, left out or offered.
+		Polestar.RegisterGuide({ id = "test/slow", pack = "test", title = "Slow", minLevel = 30, maxLevel = 40, steps = {
+			{ title = "Tor'gan", goals = { { t = "accept", quest = 701, title = "Guile of the Raptor", npc = 2561, npcName = "Tor'gan", map = 1429, x = 48.9, y = 41.6 } } },
+			{ title = "Marshal McBride", goals = { { t = "accept", quest = 7, title = "Kobold Camp Cleanup", npc = 197, npcName = "Marshal McBride", map = 1429, x = 48.9, y = 41.6 } } },
+		} })
 		Polestar.RegisterGuide({ id = "test/reset", pack = "test", title = "Reset", minLevel = 1, maxLevel = 10, steps = {
 			{ goals = { { t = "accept", quest = 201, title = "First" } } },
 			{ goals = { { t = "accept", quest = 202, title = "Second" } } },
@@ -106,6 +111,10 @@ return {
 			w.setLevel(20)
 			open("test/grey")
 		end, probe = function() return E.GetLiveStep() end, cleanup = function() w.setLevel(level) end },
+		-- Guile of the Raptor, a quest of the slow list: offered, or left out.
+		["behavior.skipSlow"] = { prepare = function() open("test/slow") end, probe = function()
+			return { slow = E.GetStepView(1).goals[1].status, other = E.GetStepView(2).goals[1].status }
+		end },
 		-- A deathskip to Sen'jin Village: the guide's step, or passed.
 		["behavior.deathskips"] = { prepare = function() open("test/die") end, probe = function()
 			return { at = E.GetLiveStep(), status = E.GetStepView(1).goals[1].status }
