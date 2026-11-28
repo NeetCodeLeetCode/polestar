@@ -21,6 +21,7 @@ mod bagsmith;
 mod class_guide_level_back;
 #[path = "class-quests.rs"]
 mod class_quests;
+mod class_routing;
 #[path = "class-skip.rs"]
 mod class_skip;
 mod closes;

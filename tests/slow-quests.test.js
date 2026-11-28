@@ -97,3 +97,49 @@ test('a slow row of the list stays slow against the data', () => {
 	const medians = bandMedians(db, classQuests);
 	for (const k of LIST.keep) assert.ok(chainScore(db, medians, k.quests), `${k.name} has a score`);
 });
+
+// The quests that turn slow as the character outlevels them (the list's `level`): from the quest database alone.
+test('a quest the character outlevels turns slow from the level its pay falls far under its time, and never before the reward is cut', () => {
+	const { slowFromLevels, levelMedians } = require('../tools/lib/slow-quests');
+	// A level 14 quest asking 12 kills of level 12 mobs, and ten quests of level 20 asking 10 kills of level 20 mobs.
+	const quests = new Map([[1, { level: 14, xp: 700, classes: 0 }]]);
+	const objectives = new Map([[1, [{ quest: 1, kind: 'kill', target: 100, count: 12 }]]]);
+	for (let q = 2; q < 12; q++) {
+		quests.set(q, { level: 20, xp: 1500, classes: 0 });
+		objectives.set(q, [{ quest: q, kind: 'kill', target: 101, count: 10 }]);
+	}
+	const fake = { quests, objectives, chance: new Map(), npcs: new Map([[100, { level: 12, elite: false }], [101, { level: 20, elite: false }]]) };
+	const medians = levelMedians(fake);
+	const from = slowFromLevels(fake, medians, 0.3, 6).get(1);
+	assert.equal(from, 20, 'level 20: 6 levels over it, 80 percent of the reward and grey mobs');
+	// Never before the reward is cut: the data alone calls it slow earlier (its mobs are grey from 19), and fromGap holds it.
+	assert.ok(slowFromLevels(fake, medians, 0.3, 1).get(1) < 20, 'the rate alone is under the line sooner');
+	assert.equal(slowFromLevels(fake, medians, 0.3, 7).get(1), 21, 'fromGap is the least level gap');
+	// A class quest, and a quest the caller skips (a row, a keep), are never listed.
+	const classy = { ...fake, quests: new Map([...quests, [1, { level: 14, xp: 700, classes: 2 }]]) };
+	assert.equal(slowFromLevels(classy, levelMedians(classy), 0.3, 6).has(1), false);
+	assert.equal(slowFromLevels(fake, medians, 0.3, 6, new Set([1])).has(1), false);
+});
+
+test('the list builds the outlevelled quests: none of a row, a keep row or a class quest, and each turns slow by the data', () => {
+	const built = SQ.buildSlowList(LIST, db, classQuests);
+	assert.ok(built.byLevel.size > 100, 'the data marks quests slow from some level');
+	const rowQuests = new Set([...LIST.slow, ...LIST.keep].flatMap((r) => r.quests));
+	const medians = require('../tools/lib/slow-quests').levelMedians(db, classQuests);
+	const { barRate } = require('../tools/lib/slow-quests');
+	for (const [q, level] of built.byLevel) {
+		assert.ok(!rowQuests.has(q) && !classQuests.has(q) && !isClassMask(db.quests.get(q)), `${q} is a row, keep or class quest`);
+		assert.ok(level - db.quests.get(q).level >= LIST.level.fromGap, `${q} turns slow ${level - db.quests.get(q).level} levels over it`);
+		assert.ok(barRate(db, q, level) / medians.get(level) < LIST.level.threshold, `${q} at ${level}`);
+	}
+	// The user's case: a level 14 quest of level 12 mobs, at 20.
+	assert.equal(built.byLevel.get(887), 20);
+});
+
+test('a bad level setting is refused', () => {
+	for (const level of [undefined, { threshold: 2, fromGap: 6 }, { threshold: 0.3, fromGap: 0 }]) {
+		const l = clone();
+		l.level = level;
+		assert.throws(() => SQ.buildSlowList(l, db, classQuests), /level\./);
+	}
+});

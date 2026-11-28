@@ -7,6 +7,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { ROOT } = require('./paths');
+const xp = require('./game/xp');
 
 const DB_DIR = path.join(ROOT, 'forever-db', 'data');
 // Blizzard's aim for Forever: an ordinary mob dies in 10 to 15 seconds.
@@ -15,6 +16,9 @@ const KILL_MINUTES = 0.25;
 const BASE_MINUTES = 1;
 // Quests of 3 levels share one median.
 const BAND = 3;
+// The quests a character of level L does on level: a quest of level L - 3 to L + 2 (the route's own pace at L).
+const WINDOW_BELOW = 3;
+const WINDOW_ABOVE = 2;
 
 function readJsonl(file) {
 	return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
@@ -34,7 +38,13 @@ function loadDb(dir = DB_DIR) {
 		if (r.kind !== 'npc' || !(r.chance > 0)) continue;
 		if (!(chance.get(r.item) >= r.chance)) chance.set(r.item, r.chance);
 	}
-	return { quests, objectives, chance };
+	// A mob's level for the sums: the middle of its range, and whether it is an elite.
+	const npcs = new Map();
+	for (const r of readJsonl(path.join(dir, 'npc.jsonl'))) {
+		const lo = r.level_min || 1;
+		npcs.set(r.id, { level: Math.floor((lo + (r.level_max || lo)) / 2), elite: (r.rank || 0) >= 1 });
+	}
+	return { quests, objectives, chance, npcs };
 }
 
 // The minutes the work of quest q takes, or null when the data holds no kill and no known drop for it. An item
@@ -106,4 +116,62 @@ function chainScore(db, medians, quests) {
 	return { xpm: Math.round(xpm), median: Math.round(mid), ratio: Math.round((xpm / mid) * 100) / 100 };
 }
 
-module.exports = { ALL_CLASSES, isClassMask, DB_DIR, KILL_MINUTES, BASE_MINUTES, BAND, loadDb, questMinutes, bandMedians, chainScore };
+// What a quest pays a character of `level` for each minute of its work, as a share of that level's XP bar: its
+// reward at the share Forever pays for the level gap (xp.js questXpShare) and the XP of the kills its objectives
+// ask (xp.js mobXp, nothing from a mob that is grey for the character), over its minutes. null when the data holds
+// no kill and no known drop for it, or no reward. The walk is not in it (the data holds no route), so the rate is
+// an upper bound: a quest it calls slow is slow.
+function barRate(db, q, level) {
+	const info = db.quests.get(q);
+	const minutes = questMinutes(db, q);
+	if (!(minutes && info && info.xp && xp.LEVEL_XP[level])) return null;
+	let gained = xp.questXpAt(info.xp, level, info.level);
+	for (const o of db.objectives.get(q) || []) {
+		const mob = o.kind === 'kill' && db.npcs && db.npcs.get(o.target);
+		if (mob) gained += (o.count || 1) * xp.mobXp(level, mob.level, mob.elite);
+	}
+	return gained / xp.LEVEL_XP[level] / minutes;
+}
+
+// Each player level's median bar rate over the quests it does on level, class quests left out (as bandMedians).
+// -> Map(level -> median)
+function levelMedians(db, classQuests = new Set()) {
+	const out = new Map();
+	for (let level = 1; level < xp.MAX_LEVEL; level++) {
+		const rates = [];
+		for (const [q, info] of db.quests) {
+			if (isClassMask(info) || classQuests.has(q)) continue;
+			if (info.level < level - WINDOW_BELOW || info.level > level + WINDOW_ABOVE) continue;
+			const r = barRate(db, q, level);
+			if (r) rates.push(r);
+		}
+		if (rates.length) out.set(level, median(rates));
+	}
+	return out;
+}
+
+// The quests that turn slow as the character outlevels them: each one's lowest level at which its bar rate is
+// under `threshold` times the median of its level, while at its own level it was not (a quest slow at its own
+// level is in a guide for another reason: on the way, a chain, a hand-in), and only from `minGap` levels above the
+// quest (6: where Forever starts to cut the reward). `skip`: quest ids never listed (class
+// quests, the hand-written list's). -> Map(quest -> level)
+function slowFromLevels(db, medians, threshold, minGap, skip = new Set()) {
+	const out = new Map();
+	for (const [q, info] of db.quests) {
+		if (isClassMask(info) || skip.has(q)) continue;
+		const own = barRate(db, q, info.level);
+		const ownMedian = medians.get(info.level);
+		if (own === null || !ownMedian || own / ownMedian < threshold) continue;
+		for (let level = info.level + minGap; level < xp.MAX_LEVEL; level++) {
+			const mid = medians.get(level);
+			const r = barRate(db, q, level);
+			if (mid && r !== null && r / mid < threshold) {
+				out.set(q, level);
+				break;
+			}
+		}
+	}
+	return out;
+}
+
+module.exports = { barRate, levelMedians, slowFromLevels, WINDOW_BELOW, WINDOW_ABOVE, ALL_CLASSES, isClassMask, DB_DIR, KILL_MINUTES, BASE_MINUTES, BAND, loadDb, questMinutes, bandMedians, chainScore };

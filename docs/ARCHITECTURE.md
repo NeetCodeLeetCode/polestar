@@ -1860,7 +1860,12 @@ Polestar.Engine.SkipGoal(stepIndex, goalIndex) -> bool     -- skip an optional g
 -- quest on Core/SlowQuestList.lua (written by `slowquests build` from data/codex/slow-quests.json: rows with 2 or more
 -- sources, a review date and a code; a `low-drop` row the forever-db score says is fast is dropped by the build). Never
 -- in a Class guide, for a goal for some classes only, or for a class quest (Own.classQuest); never a quest in the log or
--- done, nor one a quest not on the list needs (Own.slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
+-- done, nor one a quest not slow needs (slowNeeds, Own.needsFrom). Engine.LeftOutHere lists it with kind "slow".
+-- A quest the character outlevels is slow too (Own.slowCode, SlowQuestList.SlowAt(q, level)): the build scores every quest
+-- of forever-db at every level (tools/lib/slow-quests.js barRate: its reward at the level-gap share plus the XP of the kills
+-- it asks, over the minutes of its work, as a share of that level's XP bar) against the median of the quests a character
+-- of that level does, and lists the level a quest first falls under `level.threshold` of it, at `level.fromGap` levels over
+-- the quest or more. The walk is not in the data, so the rate is an upper bound.
 -- behavior.fastestXp (toggle, off): "Fastest XP", one switch that writes the fastest value of each leveling setting (Core/FastestXP.lua, docs/FASTEST-XP.md). The engine does not read it.
 Polestar.Engine.SkipQuest(questID, on) -> bool               -- skip a quest and what follows from it, in every guide; on = false brings it back
 Polestar.Engine.IsQuestSkipped(questID) -> bool
@@ -3281,7 +3286,8 @@ the same person never splits that person's group.
   - *The order.* `StepOrder.Best` tries every order that keeps those needs
     (at most 120) and counts the yards from the player to the first step's
     entry, from each step's last place to the next one's first, and on to the
-    guide's step after the window. The guide's own order wins every tie.
+    guide's step after the window (`Own.goalSpot`: a goal's own point, else the
+    candidate picked for the character, so a class trainer step counts). The guide's own order wins every tie.
   - *When it changes.* The best order is taken when it saves
     `Own.ORDER_TAKE` (20) seconds of walking over the guide's order
     (`Own.HERE_WINDING` / `Own.HERE_SPEED` seconds a yard), held while it
