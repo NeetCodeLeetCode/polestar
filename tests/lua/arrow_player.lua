@@ -38,7 +38,7 @@ function ARROW.run(o)
 	local now, yards = 0, 0
 	local m = {
 		xp = 0, kills = 0, level0 = w.level, quests = {}, handins = 0, stuck = nil, breaks = {}, reversals = 0, arrows = 0,
-		cpuMax = 0, cpu = 0, ticks = 0, jumps = 0, work = 0, idle = 0, events = {}, trace = {}, left = nil,
+		cpuMax = 0, cpu = 0, ticks = 0, jumps = 0, work = 0, idle = 0, events = {}, trace = {}, left = nil, visits = {},
 	}
 	local qlvl, qxp, objs, kinds, preOf = {}, {}, {}, {}, {}
 	local G
@@ -389,6 +389,8 @@ function ARROW.run(o)
 					local view = E.GetStepView(wp.stepIndex)
 					local vg = view and view.goals[wp.goalIndex]
 					local secs = act(goal, vg, wp.stepIndex)
+					-- Where the work was done, for the walking measures (tools/route-gap.js): kind, quest, world map, yards a, b, second, level, step, goal, guide id.
+					m.visits[#m.visits + 1] = { goal.t, goal.quest or 0, pc or 0, math.floor(pa), math.floor(pb), math.floor(now), w.level, wp.stepIndex, wp.goalIndex, g.id }
 					finished[key] = true
 					spend(secs, "work")
 					-- A check-off the game gives no event for (learn new spells): the player ticks it.
